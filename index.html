@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Lift" />
+  <meta name="theme-color" content="#000000" />
+  <title>Lift</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="apple-touch-icon" href="icons/icon-192.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+  <!-- Splash Screen -->
+  <div id="splash" class="splash">
+    <div class="splash-content">
+      <div class="splash-logo">LIFT</div>
+      <p class="splash-quote">"Exercise is a celebration of what your body can do, not a punishment for what you ate."</p>
+    </div>
+  </div>
+
+  <!-- Workout Complete Screen -->
+  <div id="workout-complete-screen" class="overlay-screen hidden">
+    <div class="overlay-content">
+      <div class="overlay-icon">✓</div>
+      <p class="overlay-quote">"It is a shame for a man to grow old without seeing the beauty and strength of which his body is capable."</p>
+      <p class="overlay-attribution">— Socrates</p>
+    </div>
+  </div>
+
+  <!-- App Shell -->
+  <div id="app" class="app hidden">
+
+    <!-- Top Nav -->
+    <header class="top-nav">
+      <button id="back-btn" class="nav-btn back-btn hidden" aria-label="Back">&#8592;</button>
+      <h1 id="page-title" class="page-title">LIFT</h1>
+      <div class="nav-right"></div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main id="main-content" class="main-content"></main>
+
+    <!-- Bottom Nav -->
+    <nav class="bottom-nav">
+      <button class="nav-tab active" data-view="home">
+        <span class="nav-icon">⚡</span>
+        <span class="nav-label">Home</span>
+      </button>
+      <button class="nav-tab" data-view="exercises">
+        <span class="nav-icon">💪</span>
+        <span class="nav-label">Exercises</span>
+      </button>
+      <button class="nav-tab" data-view="workouts">
+        <span class="nav-icon">📋</span>
+        <span class="nav-label">Workouts</span>
+      </button>
+      <button class="nav-tab" data-view="programs">
+        <span class="nav-icon">📅</span>
+        <span class="nav-label">Programs</span>
+      </button>
+      <button class="nav-tab" data-view="history">
+        <span class="nav-icon">📈</span>
+        <span class="nav-label">History</span>
+      </button>
+      <button class="nav-tab" data-view="settings">
+        <span class="nav-icon">⚙️</span>
+        <span class="nav-label">Settings</span>
+      </button>
+    </nav>
+
+  </div>
+
+  <!-- Rest Timer Overlay -->
+  <div id="rest-timer" class="rest-timer hidden">
+    <div class="rest-timer-inner">
+      <p class="rest-timer-label">REST</p>
+      <div id="rest-timer-display" class="rest-timer-display">1:30</div>
+      <button id="rest-timer-skip" class="btn btn-ghost">Skip</button>
+    </div>
+  </div>
+
+  <!-- Modal -->
+  <div id="modal-overlay" class="modal-overlay hidden">
+    <div id="modal" class="modal">
+      <div id="modal-content"></div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast" class="toast hidden"></div>
+
+  <!-- Scripts -->
+  <script src="https://cdn.jsdelivr.net/npm/idb@7/build/umd.js"></script>
+  <script src="db.js"></script>
+  <script src="exercises.js"></script>
+  <script src="workouts.js"></script>
+  <script src="programs.js"></script>
+  <script src="session.js"></script>
+  <script src="history.js"></script>
+  <script src="settings.js"></script>
+  <script src="app.js"></script>
+
+</body>
+</html>
