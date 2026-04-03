@@ -150,7 +150,7 @@ function renderSessionView() {
       const flag = document.createElement('span');
       flag.className = 'flag-icon';
       flag.title = 'Increase weight/reps this session';
-      flag.textContent = '🟡';
+      flag.textContent = '🟠';
       nameEl.appendChild(flag);
     }
     nameEl.appendChild(document.createTextNode(block.exercise.name));
@@ -178,7 +178,7 @@ function renderSessionView() {
     flagRow.className = 'session-exercise-checkbox';
     flagRow.innerHTML = `
       <input type="checkbox" id="flag-${blockIdx}" ${block.flagNext ? 'checked' : ''} onchange="updateFlagNext(${blockIdx}, this.checked)">
-      <label for="flag-${blockIdx}" style="cursor:pointer">Flag for increment next session 🟡</label>
+      <label for="flag-${blockIdx}" style="cursor:pointer">Flag for increment next session 🟠</label>
     `;
     exBlock.appendChild(flagRow);
 
