@@ -1,4 +1,4 @@
-const CACHE_NAME = 'lift-v1';
+const CACHE_NAME = 'lift-v2';
 const ASSETS = [
   '/',
   '/index.html',
@@ -31,7 +31,6 @@ self.addEventListener('activate', event => {
 });
 
 self.addEventListener('fetch', event => {
-  // Network-first for Google Fonts (online only)
   if (event.request.url.includes('fonts.googleapis.com') || event.request.url.includes('fonts.gstatic.com')) {
     event.respondWith(
       fetch(event.request).catch(() => caches.match(event.request))
@@ -39,15 +38,13 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // Cache-first for everything else
+  // Network-first for app files
   event.respondWith(
-    caches.match(event.request).then(cached => {
-      return cached || fetch(event.request).then(response => {
-        return caches.open(CACHE_NAME).then(cache => {
-          cache.put(event.request, response.clone());
-          return response;
-        });
+    fetch(event.request).then(response => {
+      return caches.open(CACHE_NAME).then(cache => {
+        cache.put(event.request, response.clone());
+        return response;
       });
-    })
+    }).catch(() => caches.match(event.request))
   );
 });
