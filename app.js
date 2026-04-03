@@ -14,6 +14,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Init DB defaults
   await initDefaults();
+  await seedExercises();
 
   // Cache unit
   window._cachedUnit = await getSetting('unit', 'kg');

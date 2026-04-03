@@ -236,3 +236,34 @@ async function initDefaults() {
   const activeProgram = await getSetting('activeProgram');
   // activeProgram can be null by default
 }
+
+async function seedExercises() {
+  const existing = await getAllExercises();
+  if (existing.length > 0) return;
+
+  const exercises = [
+    { name: 'Barbell Squat', muscleGroup: 'Legs', measurements: ['reps', 'weight'] },
+    { name: 'Barbell Bench Press', muscleGroup: 'Chest', measurements: ['reps', 'weight'] },
+    { name: 'Chest-Supported Row', muscleGroup: 'Back', measurements: ['reps', 'weight'] },
+    { name: 'Romanian Deadlift', muscleGroup: 'Legs', measurements: ['reps', 'weight'] },
+    { name: 'Shoulder Press', muscleGroup: 'Shoulders', measurements: ['reps', 'weight'] },
+    { name: 'Hip Thrust', muscleGroup: 'Legs', measurements: ['reps', 'weight'] },
+    { name: 'Conventional Deadlift', muscleGroup: 'Legs', measurements: ['reps', 'weight'] },
+    { name: 'Incline Dumbbell Press', muscleGroup: 'Chest', measurements: ['reps', 'weight'] },
+    { name: 'Pull Up', muscleGroup: 'Back', measurements: ['reps'] },
+    { name: 'Assisted Pull Up', muscleGroup: 'Back', measurements: ['reps', 'weight'] },
+    { name: 'Bulgarian Split Squat', muscleGroup: 'Legs', measurements: ['reps', 'weight'] },
+    { name: 'Face Pull', muscleGroup: 'Shoulders', measurements: ['reps', 'weight'] },
+    { name: 'Band External Rotation', muscleGroup: 'Shoulders', measurements: ['reps'] },
+    { name: 'Pallof Press', muscleGroup: 'Core', measurements: ['reps', 'weight'] },
+    { name: 'Dead Bug', muscleGroup: 'Core', measurements: ['reps'] },
+    { name: 'Landmine Rotation', muscleGroup: 'Core', measurements: ['reps', 'weight'] },
+    { name: "Farmer's Carry (25m)", muscleGroup: 'Core', measurements: ['weight'] },
+    { name: 'Copenhagen Plank', muscleGroup: 'Core', measurements: ['time'] },
+    { name: 'Stairmaster', muscleGroup: 'Cardio', measurements: ['time'] },
+  ];
+
+  for (const ex of exercises) {
+    await saveExercise(ex);
+  }
+}

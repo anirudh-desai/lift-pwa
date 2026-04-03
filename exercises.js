@@ -7,10 +7,6 @@ const MUSCLE_GROUPS = [
   'Legs', 'Glutes', 'Core', 'Full Body', 'Cardio'
 ];
 
-const MOVEMENT_TYPES = [
-  'Push', 'Pull', 'Hinge', 'Squat', 'Carry', 'Isometric', 'Cardio'
-];
-
 const MEASUREMENT_TYPES = [
   { key: 'reps', label: 'Reps' },
   { key: 'weight', label: 'Weight' },
@@ -66,15 +62,14 @@ async function renderExercisesView() {
     listWrapper.style.cssText = 'margin: 0 16px; background: var(--bg-2); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden;';
 
     exList.forEach(ex => {
+      const measurements = (ex.measurements || []).join(', ');
       const item = document.createElement('div');
       item.className = 'list-item';
-      const measurements = (ex.measurements || []).join(', ');
       item.innerHTML = `
         <div class="list-item-main">
           <div class="list-item-name">${ex.name}</div>
           <div class="list-item-meta">
-            <span class="tag tag-movement">${ex.movementType || '—'}</span>
-            <span style="margin-left:6px;font-size:11px;color:var(--text-3)">${measurements}</span>
+            <span style="font-size:11px;color:var(--text-3)">${measurements}</span>
           </div>
         </div>
         <div class="list-item-actions">
@@ -112,10 +107,6 @@ function openExerciseModal(id = null) {
       `<option value="${g}" ${ex && ex.muscleGroup === g ? 'selected' : ''}>${g}</option>`
     ).join('');
 
-    const movementOptions = MOVEMENT_TYPES.map(t =>
-      `<option value="${t}" ${ex && ex.movementType === t ? 'selected' : ''}>${t}</option>`
-    ).join('');
-
     return `
       <div class="input-group">
         <label class="input-label">Exercise Name</label>
@@ -129,13 +120,6 @@ function openExerciseModal(id = null) {
         </select>
       </div>
       <div class="input-group">
-        <label class="input-label">Movement Type</label>
-        <select id="ex-movement" class="select">
-          <option value="">Select...</option>
-          ${movementOptions}
-        </select>
-      </div>
-      <div class="input-group">
         <label class="input-label">Measurements</label>
         <div class="checkbox-group">${measurementChecks}</div>
       </div>
@@ -143,13 +127,12 @@ function openExerciseModal(id = null) {
   }, async () => {
     const name = document.getElementById('ex-name').value.trim();
     const muscleGroup = document.getElementById('ex-muscle').value;
-    const movementType = document.getElementById('ex-movement').value;
     const checked = [...document.querySelectorAll('input[name="measurements"]:checked')].map(c => c.value);
 
     if (!name) { showToast('Exercise name required'); return false; }
     if (checked.length === 0) { showToast('Select at least one measurement'); return false; }
 
-    const exercise = { name, muscleGroup, movementType, measurements: checked };
+    const exercise = { name, muscleGroup, measurements: checked };
     if (isEdit) exercise.id = id;
     await saveExercise(exercise);
     showToast(isEdit ? 'Exercise updated' : 'Exercise added');
