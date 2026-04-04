@@ -95,7 +95,7 @@ function renderWorkoutEditorUI(workout, allExercises, isEdit) {
   exHeader.className = 'section-header';
   exHeader.innerHTML = `
     <span class="section-title">Exercises</span>
-    <button class="btn btn-secondary btn-sm" onclick="openAddExerciseToWorkout()">+ Add Exercise</button>
+    <button class="btn btn-primary btn-sm" onclick="openAddExerciseToWorkout()">+ Add Exercise</button>
   `;
   exSection.appendChild(exHeader);
 
