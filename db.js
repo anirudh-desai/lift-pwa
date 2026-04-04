@@ -225,6 +225,20 @@ async function pruneExerciseLogs(exerciseId) {
   await tx.done;
 }
 
+/* ---- Active Session Draft ---- */
+async function getActiveDraft() {
+  return getSetting('activeDraft', null);
+}
+
+async function saveActiveDraft(state) {
+  await setSetting('activeDraft', state);
+}
+
+async function clearActiveDraft() {
+  const db = await getDB();
+  await db.delete('settings', 'activeDraft');
+}
+
 /* ---- Init with default settings ---- */
 async function initDefaults() {
   const unit = await getSetting('unit');

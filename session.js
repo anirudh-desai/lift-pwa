@@ -10,6 +10,12 @@ async function renderHomeView() {
   setPageTitle('LIFT');
   showBack(false);
 
+  // Restore draft from IndexedDB if session was lost (e.g. page refresh)
+  if (!_sessionState) {
+    const draft = await getActiveDraft();
+    if (draft) _sessionState = draft;
+  }
+
   const content = document.getElementById('main-content');
   content.innerHTML = '';
 
@@ -22,6 +28,22 @@ async function renderHomeView() {
     <div class="home-subtitle">What are we doing today?</div>
   `;
   content.appendChild(hero);
+
+  // Active session resume card
+  if (_sessionState) {
+    const totalSets = _sessionState.exerciseBlocks.reduce((sum, b) => sum + b.sets.length, 0);
+    const completedSets = _sessionState.exerciseBlocks.reduce((sum, b) => sum + b.sets.filter(s => s.completed).length, 0);
+    const resumeCard = document.createElement('div');
+    resumeCard.className = 'active-session-card';
+    resumeCard.innerHTML = `
+      <div class="active-session-label">⚡ Workout In Progress</div>
+      <div class="active-session-name">${escapeHTML(_sessionState.workoutName)}</div>
+      <div class="active-session-meta">${completedSets} / ${totalSets} sets completed</div>
+      <button class="btn btn-primary btn-full" onclick="resumeSession()">Resume Workout</button>
+    `;
+    content.appendChild(resumeCard);
+    return;
+  }
 
   // Next workout from active program
   const next = await getNextWorkoutInProgram();
@@ -113,6 +135,7 @@ async function startSession(workoutId, isScheduled = false) {
   }
 
   _sessionState = { workoutId, workoutName: workout.name, exerciseBlocks };
+  await saveActiveDraft(_sessionState);
   renderSessionView();
 }
 
@@ -223,6 +246,7 @@ function buildSetRow(block, blockIdx, setIdx) {
     input.disabled = set.completed;
     input.addEventListener('change', e => {
       _sessionState.exerciseBlocks[blockIdx].sets[setIdx][m] = e.target.value;
+      saveActiveDraft(_sessionState);
     });
     group.appendChild(input);
 
@@ -260,6 +284,8 @@ async function toggleSetComplete(blockIdx, setIdx) {
     row.replaceWith(newRow);
   }
 
+  saveActiveDraft(_sessionState);
+
 if (set.completed) {
   const timerEnabled = await getSetting('timerEnabled', true);
   if (timerEnabled) startRestTimer();
@@ -268,6 +294,7 @@ if (set.completed) {
 
 function updateFlagNext(blockIdx, value) {
   _sessionState.exerciseBlocks[blockIdx].flagNext = value;
+  saveActiveDraft(_sessionState);
 }
 
 function summariseLastLog(sets, measurements) {
@@ -345,6 +372,7 @@ async function confirmCompleteWorkout() {
 
 async function finishWorkout() {
   stopRestTimer();
+  await clearActiveDraft();
 
   const now = Date.now();
   const sessionId = await saveSession({
@@ -387,11 +415,16 @@ function showWorkoutCompleteScreen() {
   }, 3000);
 }
 
+function resumeSession() {
+  if (_sessionState) renderSessionView();
+}
+
 function confirmAbortSession() {
   showModal('Abort Workout', async () => {
     return `<p style="color:var(--text-2);font-size:15px;line-height:1.5">Abandon this session? Progress will not be saved.</p>`;
   }, async () => {
     stopRestTimer();
+    await clearActiveDraft();
     _sessionState = null;
     renderHomeView();
     showBack(false);

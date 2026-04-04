@@ -36,9 +36,19 @@ All functions are globals on `window` — there are no ES modules or imports.
 
 **Active session state** — `session.js` holds a `_sessionState` object in memory tracking the in-progress workout. Session is saved to IndexedDB only on completion.
 
-**Settings** — stored as key-value pairs in the `settings` store. The `unit` setting (`kg`/`lbs`) is cached at startup as `window._cachedUnit` for synchronous access during rendering.
+**Settings** — stored as key-value pairs in the `settings` store. Current keys: `restTimer` (seconds, default 90), `timerEnabled` (bool, default true). The weight unit (`kg`/`lbs`) is stored per-exercise as `exercise.unit`, not as a global setting.
 
 **Service worker** (`sw.js`, cache name `lift-v2`) — network-first strategy for all app files. When updating the SW cache, increment `CACHE_NAME` and add any new files to the `ASSETS` array.
+
+## Data Model Shapes
+
+Key object shapes used across the codebase (not stored in schema — inferred from code):
+
+- **Exercise**: `{ id, name, muscleGroup, measurements: ['reps'|'weight'|'time'], unit?: 'kg'|'lbs' }`
+- **Workout**: `{ id, name, exercises: [{ exerciseId, targetSets }] }`
+- **Program**: `{ id, name, workouts: [workoutId] }` — `programState` tracks `{ programId, nextWorkoutIndex }`
+- **Session**: `{ id, workoutId, workoutName, completedAt: timestamp }`
+- **ExerciseLog**: `{ id, exerciseId, sessionId, sets: [{ reps, weight, time, completed }], flagNext }` — `flagNext` is a boolean the user can set to remind themselves to increase weight/reps next session (shown as 🟠 flag)
 
 ## XSS Prevention
 

@@ -23,6 +23,10 @@
   --green: #30d158;
   --green-dim: rgba(48, 209, 88, 0.15);
 
+  --orange: #ff9f0a;
+  --orange-dim: rgba(255, 159, 10, 0.15);
+  --orange-border: rgba(255, 159, 10, 0.4);
+
   --blue: #0a84ff;
   --blue-dim: rgba(10, 132, 255, 0.15);
 
@@ -559,6 +563,31 @@ body {
   margin-bottom: 4px;
 }
 .next-workout-meta {
+  font-size: 13px;
+  color: var(--text-2);
+  margin-bottom: 20px;
+}
+.active-session-card {
+  margin: 8px 16px 0;
+  background: var(--orange-dim);
+  border: 2px solid var(--orange-border);
+  border-radius: var(--radius);
+  padding: 20px;
+}
+.active-session-label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 2px;
+  color: var(--orange);
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+.active-session-name {
+  font-size: 22px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+.active-session-meta {
   font-size: 13px;
   color: var(--text-2);
   margin-bottom: 20px;
