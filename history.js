@@ -49,7 +49,10 @@ async function buildHistorySessionCard(session, logs) {
       <div class="history-session-date">${dateStr} · ${timeStr}</div>
       <div class="history-session-workout">${escapeHTML(session.workoutName || 'Workout')}</div>
     </div>
-    <div style="font-size:13px;color:var(--text-3)">${logs.length} exercise${logs.length !== 1 ? 's' : ''}</div>
+    <div style="display:flex;align-items:center;gap:12px">
+      <div style="font-size:13px;color:var(--text-3)">${logs.length} exercise${logs.length !== 1 ? 's' : ''}</div>
+      <button class="icon-btn" onclick="confirmDeleteSession(${session.id})">🗑️</button>
+    </div>
   `;
   card.appendChild(header);
 
@@ -103,4 +106,23 @@ async function buildHistorySessionCard(session, logs) {
 function _getUnit() {
   // Synchronous unit read from cached setting if available
   return window._cachedUnit || 'kg';
+}
+
+async function confirmDeleteSession(id) {
+  showModal('Delete Session', async () => {
+    return `<p style="color:var(--text-2);font-size:15px;line-height:1.5">Delete this session? This cannot be undone.</p>`;
+  }, async () => {
+    const db = await getDB();
+    await db.delete('sessions', id);
+    const tx = db.transaction('exerciseLogs', 'readwrite');
+    const index = tx.store.index('sessionId');
+    const logs = await index.getAll(id);
+    for (const log of logs) {
+      await tx.store.delete(log.id);
+    }
+    await tx.done;
+    showToast('Session deleted');
+    renderHistoryView();
+    return true;
+  }, 'Delete', 'btn-danger');
 }
