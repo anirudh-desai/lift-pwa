@@ -82,7 +82,7 @@ async function buildHistorySessionCard(session, logs) {
       setRow.className = 'history-set-row';
 
       const parts = [`Set ${idx + 1}:`];
-      if (measurements.includes('weight') && set.weight) parts.push(`${set.weight} ${_getUnit()}`);
+      if (measurements.includes('weight') && set.weight) parts.push(`${set.weight} ${ex.unit || 'kg'}`);
       if (measurements.includes('reps') && set.reps) parts.push(`${set.reps} reps`);
       if (measurements.includes('time') && set.time) parts.push(`${set.time}s`);
 
@@ -103,10 +103,6 @@ async function buildHistorySessionCard(session, logs) {
   return card;
 }
 
-function _getUnit() {
-  // Synchronous unit read from cached setting if available
-  return window._cachedUnit || 'kg';
-}
 
 async function confirmDeleteSession(id) {
   showModal('Delete Session', async () => {

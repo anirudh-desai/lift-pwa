@@ -90,7 +90,6 @@ async function startSession(workoutId, isScheduled = false) {
   const workout = await getWorkout(workoutId);
   if (!workout) return;
 
-  const unit = await getSetting('unit', 'kg');
   _restTimerSeconds = await getSetting('restTimer', 90);
 
   // Load previous logs for each exercise
@@ -113,7 +112,7 @@ async function startSession(workoutId, isScheduled = false) {
     });
   }
 
-  _sessionState = { workoutId, workoutName: workout.name, exerciseBlocks, unit };
+  _sessionState = { workoutId, workoutName: workout.name, exerciseBlocks };
   renderSessionView();
 }
 
@@ -217,7 +216,7 @@ function buildSetRow(block, blockIdx, setIdx) {
     group.className = 'set-input-group';
 
     let labelText = m;
-    if (m === 'weight') labelText = _sessionState.unit === 'lbs' ? 'lbs' : 'kg';
+    if (m === 'weight') labelText = block.exercise.unit || 'kg';
     if (m === 'time') labelText = 'sec';
 
     group.innerHTML = `<span class="set-input-label">${labelText}</span>`;

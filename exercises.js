@@ -62,7 +62,9 @@ async function renderExercisesView() {
     listWrapper.style.cssText = 'margin: 0 16px; background: var(--bg-2); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden;';
 
     exList.forEach(ex => {
-      const measurements = (ex.measurements || []).join(', ');
+      const measurements = (ex.measurements || []).map(m =>
+        m === 'weight' ? `weight (${ex.unit || 'kg'})` : m
+      ).join(', ');
       const item = document.createElement('div');
       item.className = 'list-item';
       item.innerHTML = `
@@ -92,6 +94,9 @@ function openExerciseModal(id = null) {
   showModal(title, async () => {
     let ex = null;
     if (isEdit) ex = await getExercise(id);
+
+    const hasWeight = ex && ex.measurements && ex.measurements.includes('weight');
+    const exUnit = (ex && ex.unit) ? ex.unit : 'kg';
 
     const measurementChecks = MEASUREMENT_TYPES.map(m => {
       const checked = ex && ex.measurements && ex.measurements.includes(m.key) ? 'checked' : '';
@@ -123,16 +128,25 @@ function openExerciseModal(id = null) {
         <label class="input-label">Measurements</label>
         <div class="checkbox-group">${measurementChecks}</div>
       </div>
+      <div class="input-group" id="unit-row" ${!hasWeight ? 'style="display:none"' : ''}>
+        <label class="input-label">Weight Unit</label>
+        <input type="hidden" id="ex-unit-hidden" value="${exUnit}">
+        <div style="display:flex;gap:8px">
+          <button type="button" class="btn btn-sm ${exUnit === 'kg' ? 'btn-primary' : 'btn-ghost'}" onclick="selectExUnit('kg', this)">kg</button>
+          <button type="button" class="btn btn-sm ${exUnit === 'lbs' ? 'btn-primary' : 'btn-ghost'}" onclick="selectExUnit('lbs', this)">lbs</button>
+        </div>
+      </div>
     `;
   }, async () => {
     const name = document.getElementById('ex-name').value.trim();
     const muscleGroup = document.getElementById('ex-muscle').value;
     const checked = [...document.querySelectorAll('input[name="measurements"]:checked')].map(c => c.value);
+    const unit = document.getElementById('ex-unit-hidden').value || 'kg';
 
     if (!name) { showToast('Exercise name required'); return false; }
     if (checked.length === 0) { showToast('Select at least one measurement'); return false; }
 
-    const exercise = { name, muscleGroup, measurements: checked };
+    const exercise = { name, muscleGroup, measurements: checked, unit };
     if (isEdit) exercise.id = id;
     await saveExercise(exercise);
     showToast(isEdit ? 'Exercise updated' : 'Exercise added');
@@ -144,6 +158,18 @@ function openExerciseModal(id = null) {
 function togglePill(input) {
   const pill = document.getElementById('pill-' + input.value);
   if (pill) pill.classList.toggle('checked', input.checked);
+  if (input.value === 'weight') {
+    const unitRow = document.getElementById('unit-row');
+    if (unitRow) unitRow.style.display = input.checked ? '' : 'none';
+  }
+}
+
+function selectExUnit(unit, btn) {
+  document.getElementById('ex-unit-hidden').value = unit;
+  btn.parentElement.querySelectorAll('.btn').forEach(b => {
+    b.className = `btn btn-sm btn-ghost`;
+  });
+  btn.className = `btn btn-sm btn-primary`;
 }
 
 async function confirmDeleteExercise(id, name) {

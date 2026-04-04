@@ -6,30 +6,19 @@ async function renderSettingsView() {
   setPageTitle('SETTINGS');
   showBack(false);
 
-  const unit = await getSetting('unit', 'kg');
   const timerEnabled = await getSetting('timerEnabled', true);
   const restTimer = await getSetting('restTimer', 90);
 
   const content = document.getElementById('main-content');
   content.innerHTML = '';
 
-  // Units
+  // Timer
   const unitSection = document.createElement('div');
   unitSection.innerHTML = `
     <div class="section-header">
       <span class="section-title">Preferences</span>
     </div>
     <div class="settings-group" style="margin: 0 16px 24px;">
-      <div class="settings-row">
-        <div>
-          <div class="settings-row-label">Weight Unit</div>
-          <div class="settings-row-sub">Used across all exercises</div>
-        </div>
-        <div style="display:flex;gap:8px;align-items:center">
-          <button id="unit-kg" class="btn btn-sm ${unit === 'kg' ? 'btn-primary' : 'btn-ghost'}" onclick="setUnit('kg')">kg</button>
-          <button id="unit-lbs" class="btn btn-sm ${unit === 'lbs' ? 'btn-primary' : 'btn-ghost'}" onclick="setUnit('lbs')">lbs</button>
-        </div>
-      </div>
       <div class="settings-row">
         <div>
           <div class="settings-row-label">Rest Timer</div>
@@ -94,13 +83,6 @@ async function renderSettingsView() {
   content.appendChild(aboutSection);
 }
 
-async function setUnit(unit) {
-  await setSetting('unit', unit);
-  window._cachedUnit = unit;
-  document.getElementById('unit-kg').className = `btn btn-sm ${unit === 'kg' ? 'btn-primary' : 'btn-ghost'}`;
-  document.getElementById('unit-lbs').className = `btn btn-sm ${unit === 'lbs' ? 'btn-primary' : 'btn-ghost'}`;
-  showToast(`Weight unit set to ${unit}`);
-}
 
 let _timerAdjustTimeout = null;
 async function adjustTimer(delta) {

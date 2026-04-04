@@ -16,9 +16,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   await initDefaults();
   await seedExercises();
 
-  // Cache unit
-  window._cachedUnit = await getSetting('unit', 'kg');
-
   // Splash screen: show for 3 seconds then fade
   setTimeout(() => {
     const splash = document.getElementById('splash');
