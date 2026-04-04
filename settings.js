@@ -7,6 +7,7 @@ async function renderSettingsView() {
   showBack(false);
 
   const unit = await getSetting('unit', 'kg');
+  const timerEnabled = await getSetting('timerEnabled', true);
   const restTimer = await getSetting('restTimer', 90);
 
   const content = document.getElementById('main-content');
@@ -39,7 +40,7 @@ async function renderSettingsView() {
           <span class="toggle-slider"></span>
         </label>
       </div>
-      <div class="settings-row" id="timer-duration-row" ${!timerEnabled ? 'style="display:none"' : ''}>
+      <div class="settings-row" id="timer-duration-row" style="${!timerEnabled ? 'display:none' : ''}">
         <div>
           <div class="settings-row-label">Rest Duration</div>
           <div class="settings-row-sub">Seconds between sets</div>
@@ -137,4 +138,10 @@ async function exportData() {
   a.click();
   URL.revokeObjectURL(url);
   showToast('Export downloaded');
+}
+
+async function setTimerEnabled(value) {
+  await setSetting('timerEnabled', value);
+  const durationRow = document.getElementById('timer-duration-row');
+  if (durationRow) durationRow.style.display = value ? '' : 'none';
 }
