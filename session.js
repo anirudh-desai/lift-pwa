@@ -124,14 +124,6 @@ function renderSessionView() {
   const content = document.getElementById('main-content');
   content.innerHTML = '';
 
-  // Header bar
-  const headerBar = document.createElement('div');
-  headerBar.style.cssText = 'padding: 12px 16px 0; display: flex; justify-content: flex-end;';
-  headerBar.innerHTML = `
-    <button class="btn btn-success" onclick="confirmCompleteWorkout()">Mark Complete ✓</button>
-  `;
-  content.appendChild(headerBar);
-
   _sessionState.exerciseBlocks.forEach((block, blockIdx) => {
     const exBlock = document.createElement('div');
     exBlock.className = 'session-exercise-block animate-in';
