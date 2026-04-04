@@ -257,7 +257,7 @@ function buildSetRow(block, blockIdx, setIdx) {
   return row;
 }
 
-function toggleSetComplete(blockIdx, setIdx) {
+async function toggleSetComplete(blockIdx, setIdx) {
   const block = _sessionState.exerciseBlocks[blockIdx];
   const set = block.sets[setIdx];
   set.completed = !set.completed;
@@ -269,9 +269,10 @@ function toggleSetComplete(blockIdx, setIdx) {
     row.replaceWith(newRow);
   }
 
-  if (set.completed) {
-    startRestTimer();
-  }
+if (set.completed) {
+  const timerEnabled = await getSetting('timerEnabled', true);
+  if (timerEnabled) startRestTimer();
+}
 }
 
 function updateFlagNext(blockIdx, value) {

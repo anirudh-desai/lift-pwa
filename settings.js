@@ -32,6 +32,16 @@ async function renderSettingsView() {
       <div class="settings-row">
         <div>
           <div class="settings-row-label">Rest Timer</div>
+          <div class="settings-row-sub">Countdown between sets</div>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="timer-enabled" ${timerEnabled ? 'checked' : ''} onchange="setTimerEnabled(this.checked)">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+      <div class="settings-row" id="timer-duration-row" ${!timerEnabled ? 'style="display:none"' : ''}>
+        <div>
+          <div class="settings-row-label">Rest Duration</div>
           <div class="settings-row-sub">Seconds between sets</div>
         </div>
         <div style="display:flex;align-items:center;gap:10px">
