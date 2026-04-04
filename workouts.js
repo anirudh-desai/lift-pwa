@@ -153,6 +153,8 @@ function renderWorkoutExerciseRows(container, workoutExercises, allExercises) {
         </div>
       </div>
       <div class="list-item-actions">
+        ${idx > 0 ? `<button class="icon-btn" onclick="moveWorkoutExercise(${idx}, -1)">↑</button>` : '<span style="width:32px"></span>'}
+        ${idx < workoutExercises.length - 1 ? `<button class="icon-btn" onclick="moveWorkoutExercise(${idx}, 1)">↓</button>` : '<span style="width:32px"></span>'}
         <button class="icon-btn" onclick="removeExerciseFromWorkout(${idx})">✕</button>
       </div>
     `;
@@ -249,4 +251,16 @@ async function confirmDeleteWorkout(id, name) {
     renderWorkoutsView();
     return true;
   }, 'Delete', 'btn-danger');
+}
+
+function moveWorkoutExercise(idx, direction) {
+  const state = window._workoutEditorState;
+  if (!state) return;
+  const newIdx = idx + direction;
+  if (newIdx < 0 || newIdx >= state.exercises.length) return;
+  const tmp = state.exercises[idx];
+  state.exercises[idx] = state.exercises[newIdx];
+  state.exercises[newIdx] = tmp;
+  const container = document.getElementById('workout-exercise-list');
+  renderWorkoutExerciseRows(container, state.exercises, state.allExercises);
 }
