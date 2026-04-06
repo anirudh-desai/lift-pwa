@@ -23,8 +23,8 @@ The app is a vanilla JS PWA. All code runs in the browser; there is no backend.
 **Script load order matters** — `index.html` loads scripts in this order:
 1. `idb.js` (CDN) — IndexedDB promise wrapper
 2. `db.js` — database layer (must be first; all other files call its functions)
-3. `app.js` — router, `navigateTo()`, `showModal()`, `showToast()`, `escapeHTML()`, `escapeAttr()`
-4. Feature files: `exercises.js`, `workouts.js`, `programs.js`, `session.js`, `history.js`, `settings.js`
+3. Feature files: `exercises.js`, `workouts.js`, `programs.js`, `session.js`, `history.js`, `settings.js`
+4. `app.js` — router, `navigateTo()`, `showModal()`, `showToast()`, `escapeHTML()`, `escapeAttr()` (loaded last so feature files can define globals it calls)
 
 All functions are globals on `window` — there are no ES modules or imports.
 
@@ -34,9 +34,21 @@ All functions are globals on `window` — there are no ES modules or imports.
 
 **Database** (`db.js`) — Single IndexedDB database `lift-db` v1 with stores: `exercises`, `workouts`, `programs`, `sessions`, `exerciseLogs`, `settings`, `programState`. All DB functions are async and exposed as globals. `exerciseLogs` are pruned to 10 entries per exercise via `pruneExerciseLogs()`.
 
-**Active session state** — `session.js` holds a `_sessionState` object in memory tracking the in-progress workout. Session is saved to IndexedDB only on completion.
+**Active session state** — `session.js` holds a `_sessionState` object in memory:
+```
+{ workoutId, workoutName, exerciseBlocks: [{ exerciseId, exercise, targetSets, sets, flagNext, lastLog }] }
+```
+Session is saved to IndexedDB only on completion. In-progress state is persisted continuously to the `activeDraft` settings key so sessions survive page refreshes. The home view checks for an `activeDraft` on render and shows a "Workout In Progress" card. Draft is cleared only on completion or abandonment (`clearActiveDraft()`). Key functions: `saveActiveDraft()`, `getActiveDraft()`, `resumeSession()`, `confirmAbortSession()`, `finishWorkout()`.
 
-**Settings** — stored as key-value pairs in the `settings` store. Current keys: `restTimer` (seconds, default 90), `timerEnabled` (bool, default true). The weight unit (`kg`/`lbs`) is stored per-exercise as `exercise.unit`, not as a global setting.
+**Settings** — stored as key-value pairs in the `settings` store. Current keys:
+- `restTimer` — rest duration in seconds (default 90)
+- `timerEnabled` — bool, whether rest timer auto-starts after set completion (default true)
+- `activeProgram` — ID of the currently active program, or null
+- `activeDraft` — serialized in-progress session state for resume-after-refresh (see Active session state)
+
+The weight unit (`kg`/`lbs`) is stored per-exercise as `exercise.unit`, not as a global setting.
+
+**Rest timer** — automatically starts when a set is marked complete (if `timerEnabled` is true). Duration is taken from the `restTimer` setting. Shows a CSS `warning` class when ≤10 seconds remain. Can be skipped at any time.
 
 **Service worker** (`sw.js`, cache name `lift-v2`) — network-first strategy for all app files. When updating the SW cache, increment `CACHE_NAME` and add any new files to the `ASSETS` array.
 
@@ -46,9 +58,13 @@ Key object shapes used across the codebase (not stored in schema — inferred fr
 
 - **Exercise**: `{ id, name, muscleGroup, measurements: ['reps'|'weight'|'time'], unit?: 'kg'|'lbs' }`
 - **Workout**: `{ id, name, exercises: [{ exerciseId, targetSets }] }`
-- **Program**: `{ id, name, workouts: [workoutId] }` — `programState` tracks `{ programId, nextWorkoutIndex }`
+- **Program**: `{ id, name, workoutIds: [workoutId] }` — `programState` tracks `{ programId, nextWorkoutIndex }`. Workouts cycle using modulo wrap-around. When a user manually selects an out-of-sequence workout, the program is re-anchored so the next scheduled workout follows the selected one. Key functions: `getNextWorkoutInProgram()`, `advanceProgramAfterWorkout(workoutId)`, `anchorProgramToWorkout(workoutId)`.
 - **Session**: `{ id, workoutId, workoutName, completedAt: timestamp }`
-- **ExerciseLog**: `{ id, exerciseId, sessionId, sets: [{ reps, weight, time, completed }], flagNext }` — `flagNext` is a boolean the user can set to remind themselves to increase weight/reps next session (shown as 🟠 flag)
+- **ExerciseLog**: `{ id, exerciseId, sessionId, sets: [{ reps, weight, time, completed }], flagNext }` — `flagNext` is a boolean the user can set to remind themselves to increase weight/reps next session. If the previous session's log had `flagNext` set, the 🟠 flag is shown at the start of that exercise in the next session.
+
+## Data Export
+
+`exportData()` in `settings.js` bundles all sessions with their exercise logs into a JSON file and triggers a download. Filename format: `lift-export-YYYY-MM-DD.json`.
 
 ## XSS Prevention
 

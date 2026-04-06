@@ -843,6 +843,143 @@ body {
   padding: 4px;
 }
 
+/* ---- Workout Editor — Standalone Exercise Row ---- */
+.editor-exercise-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 16px;
+  margin: 0 16px 8px;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.editor-row-drag-handle {
+  color: var(--text-3);
+  font-size: 18px;
+  cursor: grab;
+  flex-shrink: 0;
+  line-height: 1;
+}
+.editor-row-drag-handle:active { cursor: grabbing; }
+.editor-row-main { flex: 1; min-width: 0; }
+.editor-row-name {
+  font-size: 15px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dragging { opacity: 0.35; }
+
+/* ---- Workout Editor — Superset Box ---- */
+.superset-box {
+  margin: 0 16px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: var(--radius);
+  background: var(--bg-2);
+  overflow: hidden;
+}
+.superset-box-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-3);
+}
+.superset-box-label {
+  flex: 1;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  color: var(--text-2);
+  text-transform: uppercase;
+}
+.superset-inner-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-2);
+}
+.superset-inner-row:last-child { border-bottom: none; }
+.superset-box-empty {
+  padding: 14px 16px;
+  color: var(--text-3);
+  font-size: 13px;
+  text-align: center;
+}
+.superset-box-footer {
+  padding: 8px 16px;
+  border-top: 1px solid var(--border);
+}
+.drag-over-superset {
+  border-color: var(--accent) !important;
+  background: var(--accent-dim) !important;
+}
+.drag-over-superset .superset-box-header {
+  background: transparent;
+}
+
+/* ---- Session View — Superset Block ---- */
+.session-superset-block {
+  margin: 0 16px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: var(--radius);
+  background: var(--bg-2);
+  overflow: hidden;
+}
+.session-superset-header {
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-3);
+}
+.session-superset-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  color: var(--text-3);
+  text-transform: uppercase;
+}
+.superset-round {
+  border-bottom: 1px solid var(--border-light);
+}
+.superset-round:last-of-type { border-bottom: none; }
+.superset-round.completed { opacity: 0.5; }
+.superset-round-header {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  color: var(--text-3);
+  text-transform: uppercase;
+  padding: 10px 16px 2px;
+}
+.superset-ex-mini-header {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-2);
+  padding: 6px 16px 0;
+}
+.superset-round-complete-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 8px 16px 10px;
+}
+.session-superset-flags {
+  border-top: 1px solid var(--border);
+  padding: 4px 16px 4px;
+}
+.session-superset-flags .session-exercise-checkbox {
+  border-top: none;
+  padding: 6px 0;
+}
+.session-superset-flags .session-exercise-checkbox + .session-exercise-checkbox {
+  border-top: 1px solid var(--border);
+}
+
 /* ---- Scrollbar ---- */
 ::-webkit-scrollbar { width: 0; }
 

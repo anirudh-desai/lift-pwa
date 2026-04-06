@@ -2,6 +2,25 @@
    LIFT — Workout Builder
    ============================================= */
 
+// Convert old {exercises:[]} format to new {items:[]} format
+function normalizeWorkoutItems(workout) {
+  if (workout.items) return workout;
+  const exercises = workout.exercises || [];
+  return {
+    ...workout,
+    items: exercises.map(e => ({ type: 'exercise', exerciseId: e.exerciseId, targetSets: e.targetSets || 3 }))
+  };
+}
+
+function countItemsExercises(items) {
+  let count = 0;
+  for (const item of items) {
+    if (item.type === 'exercise') count++;
+    else if (item.type === 'superset') count += item.exercises.length;
+  }
+  return count;
+}
+
 async function renderWorkoutsView() {
   setPageTitle('WORKOUTS');
   showBack(false);
@@ -34,10 +53,11 @@ async function renderWorkoutsView() {
   listWrapper.style.cssText = 'margin: 0 16px; background: var(--bg-2); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden;';
 
   workouts.forEach(w => {
-    const exCount = (w.exercises || []).length;
-    const item = document.createElement('div');
-    item.className = 'list-item';
-    item.innerHTML = `
+    const normalized = normalizeWorkoutItems(w);
+    const exCount = countItemsExercises(normalized.items || []);
+    const row = document.createElement('div');
+    row.className = 'list-item';
+    row.innerHTML = `
       <div class="list-item-main">
         <div class="list-item-name">${escapeHTML(w.name)}</div>
         <div class="list-item-meta">${exCount} exercise${exCount !== 1 ? 's' : ''}</div>
@@ -47,7 +67,7 @@ async function renderWorkoutsView() {
         <button class="icon-btn" onclick="confirmDeleteWorkout(${w.id}, '${escapeAttr(w.name)}')">🗑️</button>
       </div>
     `;
-    listWrapper.appendChild(item);
+    listWrapper.appendChild(row);
   });
 
   content.appendChild(listWrapper);
@@ -63,9 +83,10 @@ async function openWorkoutEditor(id = null) {
 
   let workout = null;
   if (isEdit) {
-    workout = await getWorkout(id);
+    const raw = await getWorkout(id);
+    workout = normalizeWorkoutItems(raw);
   } else {
-    workout = { name: '', exercises: [] };
+    workout = { name: '', items: [] };
   }
 
   const exercises = await getAllExercises();
@@ -89,27 +110,22 @@ function renderWorkoutEditorUI(workout, allExercises, isEdit) {
   `;
   content.appendChild(nameSection);
 
-  // Exercises in workout
+  // Section header with two action buttons
   const exSection = document.createElement('div');
   const exHeader = document.createElement('div');
   exHeader.className = 'section-header';
   exHeader.innerHTML = `
     <span class="section-title">Exercises</span>
-    <button class="btn btn-primary btn-sm" onclick="openAddExerciseToWorkout()">+ Add Exercise</button>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-secondary btn-sm" onclick="addSupersetToWorkout()">+ Superset</button>
+      <button class="btn btn-primary btn-sm" onclick="openAddExerciseToWorkout()">+ Exercise</button>
+    </div>
   `;
   exSection.appendChild(exHeader);
 
-  const exList = document.createElement('div');
-  exList.id = 'workout-exercise-list';
-  exList.style.cssText = 'margin: 0 16px; background: var(--bg-2); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden;';
-
-  if (!workout.exercises || workout.exercises.length === 0) {
-    exList.innerHTML = `<div style="padding:20px 16px;color:var(--text-3);font-size:14px;text-align:center">No exercises added yet</div>`;
-  } else {
-    renderWorkoutExerciseRows(exList, workout.exercises, allExercises);
-  }
-
-  exSection.appendChild(exList);
+  const itemsList = document.createElement('div');
+  itemsList.id = 'workout-items-list';
+  exSection.appendChild(itemsList);
   content.appendChild(exSection);
 
   // Save button
@@ -122,101 +138,401 @@ function renderWorkoutEditorUI(workout, allExercises, isEdit) {
   `;
   content.appendChild(saveSection);
 
-  // Store working state on window for access during save
   window._workoutEditorState = {
-    exercises: workout.exercises ? [...workout.exercises] : [],
+    items: (workout.items || []).map(item => {
+      if (item.type === 'superset') return { ...item, exercises: [...item.exercises] };
+      return { ...item };
+    }),
     allExercises
   };
+
+  refreshWorkoutItemsList();
 }
 
-function renderWorkoutExerciseRows(container, workoutExercises, allExercises) {
+function refreshWorkoutItemsList() {
+  const container = document.getElementById('workout-items-list');
+  if (!container || !window._workoutEditorState) return;
+  const { items, allExercises } = window._workoutEditorState;
   container.innerHTML = '';
-  workoutExercises.forEach((we, idx) => {
-    const ex = allExercises.find(e => e.id === we.exerciseId);
-    if (!ex) return;
-    const row = document.createElement('div');
-    row.className = 'list-item';
-    row.style.flexWrap = 'wrap';
-    row.innerHTML = `
-      <div class="list-item-main">
-        <div class="list-item-name">${escapeHTML(ex.name)}</div>
-        <div class="list-item-meta" style="display:flex;align-items:center;gap:8px;margin-top:6px">
-          <label style="font-size:12px;color:var(--text-2)">Sets:</label>
-          <input 
-            class="set-input" 
-            type="number" 
-            min="1" max="20" 
-            value="${we.targetSets || 3}" 
-            style="width:52px;font-size:13px;padding:4px 6px"
-            onchange="updateWorkoutExerciseSets(${idx}, this.value)"
-          >
-        </div>
-      </div>
-      <div class="list-item-actions">
-        ${idx > 0 ? `<button class="icon-btn" onclick="moveWorkoutExercise(${idx}, -1)">↑</button>` : '<span style="width:32px"></span>'}
-        ${idx < workoutExercises.length - 1 ? `<button class="icon-btn" onclick="moveWorkoutExercise(${idx}, 1)">↓</button>` : '<span style="width:32px"></span>'}
-        <button class="icon-btn" onclick="removeExerciseFromWorkout(${idx})">✕</button>
-      </div>
-    `;
-    container.appendChild(row);
+
+  if (items.length === 0) {
+    const empty = document.createElement('div');
+    empty.style.cssText = 'padding:20px 16px;color:var(--text-3);font-size:14px;text-align:center;margin:0 16px;background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius)';
+    empty.textContent = 'No exercises added yet';
+    container.appendChild(empty);
+    return;
+  }
+
+  // Drop target on main list: dragging a superset exercise out makes it standalone
+  container.addEventListener('dragover', e => {
+    if (!window._dragItem || window._dragItem.source !== 'superset') return;
+    if (e.target.closest && e.target.closest('.superset-box')) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  });
+  container.addEventListener('drop', e => {
+    if (!window._dragItem || window._dragItem.source !== 'superset') return;
+    if (e.target.closest && e.target.closest('.superset-box')) return;
+    e.preventDefault();
+    const drag = window._dragItem;
+    const state = window._workoutEditorState;
+    const superset = state.items[drag.itemIdx];
+    if (!superset || superset.type !== 'superset') return;
+    const [ex] = superset.exercises.splice(drag.exIdx, 1);
+    state.items.push({ type: 'exercise', exerciseId: ex.exerciseId, targetSets: superset.targetSets || 3 });
+    refreshWorkoutItemsList();
+  });
+
+  items.forEach((item, idx) => {
+    if (item.type === 'exercise') {
+      container.appendChild(buildStandaloneExerciseRow(item, idx, items, allExercises));
+    } else if (item.type === 'superset') {
+      container.appendChild(buildSupersetBox(item, idx, items, allExercises));
+    }
   });
 }
 
-function updateWorkoutExerciseSets(idx, value) {
-  if (!window._workoutEditorState) return;
-  const val = parseInt(value) || 1;
-  window._workoutEditorState.exercises[idx].targetSets = val;
+function buildStandaloneExerciseRow(item, idx, items, allExercises) {
+  const ex = allExercises.find(e => e.id === item.exerciseId);
+  if (!ex) return document.createElement('div');
+
+  const row = document.createElement('div');
+  row.className = 'editor-exercise-row';
+  row.draggable = true;
+  row.innerHTML = `
+    <span class="editor-row-drag-handle" title="Drag into a superset">⠿</span>
+    <div class="editor-row-main">
+      <div class="editor-row-name">${escapeHTML(ex.name)}</div>
+      <div style="display:flex;align-items:center;gap:8px;margin-top:6px">
+        <label style="font-size:12px;color:var(--text-2)">Sets:</label>
+        <input
+          class="set-input"
+          type="number"
+          min="1" max="20"
+          value="${item.targetSets || 3}"
+          style="width:52px;font-size:13px;padding:4px 6px"
+          onchange="updateStandaloneExerciseSets(${idx}, this.value)"
+        >
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:2px;flex-shrink:0">
+      ${idx > 0 ? `<button class="icon-btn" onclick="moveItem(${idx}, -1)">↑</button>` : '<span style="width:32px"></span>'}
+      ${idx < items.length - 1 ? `<button class="icon-btn" onclick="moveItem(${idx}, 1)">↓</button>` : '<span style="width:32px"></span>'}
+      <button class="icon-btn" onclick="removeItemFromWorkout(${idx})">✕</button>
+    </div>
+  `;
+
+  row.addEventListener('dragstart', e => {
+    window._dragItem = { source: 'standalone', itemIdx: idx };
+    e.dataTransfer.effectAllowed = 'move';
+    setTimeout(() => row.classList.add('dragging'), 0);
+  });
+  row.addEventListener('dragend', () => {
+    row.classList.remove('dragging');
+    window._dragItem = null;
+  });
+
+  return row;
 }
 
-function removeExerciseFromWorkout(idx) {
-  if (!window._workoutEditorState) return;
-  window._workoutEditorState.exercises.splice(idx, 1);
-  const container = document.getElementById('workout-exercise-list');
-  renderWorkoutExerciseRows(container, window._workoutEditorState.exercises, window._workoutEditorState.allExercises);
-  if (window._workoutEditorState.exercises.length === 0) {
-    container.innerHTML = `<div style="padding:20px 16px;color:var(--text-3);font-size:14px;text-align:center">No exercises added yet</div>`;
+function buildSupersetBox(item, idx, items, allExercises) {
+  const box = document.createElement('div');
+  box.className = 'superset-box';
+
+  // Header
+  const header = document.createElement('div');
+  header.className = 'superset-box-header';
+  header.innerHTML = `
+    <span class="superset-box-label">Superset</span>
+    <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+      <label style="font-size:12px;color:var(--text-2)">Sets:</label>
+      <input
+        class="set-input"
+        type="number"
+        min="1" max="20"
+        value="${item.targetSets || 3}"
+        style="width:52px;font-size:13px;padding:4px 6px"
+        onchange="updateSupersetSets(${idx}, this.value)"
+      >
+      ${idx > 0 ? `<button class="icon-btn" onclick="moveItem(${idx}, -1)">↑</button>` : '<span style="width:32px"></span>'}
+      ${idx < items.length - 1 ? `<button class="icon-btn" onclick="moveItem(${idx}, 1)">↓</button>` : '<span style="width:32px"></span>'}
+      <button class="icon-btn" style="color:var(--accent)" onclick="deleteSupersetBox(${idx})">✕</button>
+    </div>
+  `;
+  box.appendChild(header);
+
+  // Exercises within superset
+  const exList = document.createElement('div');
+  exList.className = 'superset-box-exercises';
+
+  if (item.exercises.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'superset-box-empty';
+    empty.textContent = 'Drop an exercise here or use + Add Exercise';
+    exList.appendChild(empty);
+  } else {
+    item.exercises.forEach((exItem, exIdx) => {
+      const ex = allExercises.find(e => e.id === exItem.exerciseId);
+      if (!ex) return;
+
+      const exRow = document.createElement('div');
+      exRow.className = 'superset-inner-row';
+      exRow.draggable = true;
+      exRow.innerHTML = `
+        <span class="editor-row-drag-handle" style="font-size:14px" title="Drag to another superset">⠿</span>
+        <div style="flex:1;min-width:0;font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
+          ${escapeHTML(ex.name)}
+        </div>
+        <div style="display:flex;align-items:center;gap:2px;flex-shrink:0">
+          ${exIdx > 0 ? `<button class="icon-btn" onclick="moveExerciseInSuperset(${idx}, ${exIdx}, -1)">↑</button>` : '<span style="width:32px"></span>'}
+          ${exIdx < item.exercises.length - 1 ? `<button class="icon-btn" onclick="moveExerciseInSuperset(${idx}, ${exIdx}, 1)">↓</button>` : '<span style="width:32px"></span>'}
+          <button class="icon-btn" onclick="removeExerciseFromSuperset(${idx}, ${exIdx})">✕</button>
+        </div>
+      `;
+
+      exRow.addEventListener('dragstart', e => {
+        window._dragItem = { source: 'superset', itemIdx: idx, exIdx };
+        e.dataTransfer.effectAllowed = 'move';
+        setTimeout(() => exRow.classList.add('dragging'), 0);
+      });
+      exRow.addEventListener('dragend', () => {
+        exRow.classList.remove('dragging');
+        window._dragItem = null;
+      });
+
+      exList.appendChild(exRow);
+    });
   }
+
+  box.appendChild(exList);
+
+  // Footer with + Add Exercise button
+  const footer = document.createElement('div');
+  footer.className = 'superset-box-footer';
+  footer.innerHTML = `<button class="btn btn-ghost btn-sm btn-full" onclick="openAddExerciseToSuperset(${idx})">+ Add Exercise</button>`;
+  box.appendChild(footer);
+
+  // Drop events: exercises can be dragged into this superset
+  box.addEventListener('dragover', e => {
+    if (!window._dragItem) return;
+    if (window._dragItem.source === 'superset' && window._dragItem.itemIdx === idx) return;
+    e.preventDefault();
+    e.stopPropagation();
+    e.dataTransfer.dropEffect = 'move';
+    box.classList.add('drag-over-superset');
+  });
+  box.addEventListener('dragleave', e => {
+    if (!box.contains(e.relatedTarget)) box.classList.remove('drag-over-superset');
+  });
+  box.addEventListener('drop', e => {
+    e.preventDefault();
+    e.stopPropagation();
+    box.classList.remove('drag-over-superset');
+    if (!window._dragItem) return;
+    const drag = window._dragItem;
+    const state = window._workoutEditorState;
+
+    let exerciseId = null;
+    if (drag.source === 'standalone') {
+      const draggedItem = state.items[drag.itemIdx];
+      if (!draggedItem || draggedItem.type !== 'exercise') return;
+      exerciseId = draggedItem.exerciseId;
+    } else if (drag.source === 'superset') {
+      if (drag.itemIdx === idx) return;
+      const srcSuperset = state.items[drag.itemIdx];
+      if (!srcSuperset) return;
+      exerciseId = srcSuperset.exercises[drag.exIdx]?.exerciseId;
+    }
+    if (!exerciseId) return;
+
+    const targetSuperset = state.items[idx];
+    if (targetSuperset.exercises.some(e => e.exerciseId === exerciseId)) {
+      showToast('Exercise already in this superset');
+      return;
+    }
+
+    if (drag.source === 'standalone') {
+      state.items.splice(drag.itemIdx, 1);
+    } else {
+      state.items[drag.itemIdx].exercises.splice(drag.exIdx, 1);
+    }
+    targetSuperset.exercises.push({ exerciseId });
+    refreshWorkoutItemsList();
+  });
+
+  return box;
+}
+
+function addSupersetToWorkout() {
+  if (!window._workoutEditorState) return;
+  window._workoutEditorState.items.push({ type: 'superset', targetSets: 3, exercises: [] });
+  refreshWorkoutItemsList();
+}
+
+function getAllUsedExerciseIds(items) {
+  const ids = new Set();
+  for (const item of items) {
+    if (item.type === 'exercise') ids.add(item.exerciseId);
+    else if (item.type === 'superset') item.exercises.forEach(e => ids.add(e.exerciseId));
+  }
+  return ids;
 }
 
 function openAddExerciseToWorkout() {
-  const allExercises = window._workoutEditorState ? window._workoutEditorState.allExercises : [];
-  const current = window._workoutEditorState ? window._workoutEditorState.exercises.map(e => e.exerciseId) : [];
+  const state = window._workoutEditorState;
+  if (!state) return;
 
-  if (allExercises.length === 0) {
-    showToast('Add exercises to your library first');
-    return;
-  }
+  if (state.allExercises.length === 0) { showToast('Add exercises to your library first'); return; }
 
-  const options = allExercises
-    .filter(ex => !current.includes(ex.id))
+  const usedIds = getAllUsedExerciseIds(state.items);
+  const options = state.allExercises
+    .filter(ex => !usedIds.has(ex.id))
     .map(ex => `<option value="${ex.id}">${escapeHTML(ex.name)} (${(ex.measurements || []).join(', ')})</option>`)
     .join('');
 
-  if (!options) {
-    showToast('All exercises already added');
+  if (!options) { showToast('All exercises already added'); return; }
+
+  showModal('Add Exercise', async () => `
+    <div class="input-group">
+      <label class="input-label">Select Exercise</label>
+      <select id="add-ex-select" class="select">
+        <option value="">Choose...</option>
+        ${options}
+      </select>
+    </div>
+  `, async () => {
+    const val = document.getElementById('add-ex-select').value;
+    if (!val) { showToast('Select an exercise'); return false; }
+    window._workoutEditorState.items.push({ type: 'exercise', exerciseId: parseInt(val), targetSets: 3 });
+    refreshWorkoutItemsList();
+    return true;
+  }, 'Add');
+}
+
+function openAddExerciseToSuperset(supersetIdx) {
+  const state = window._workoutEditorState;
+  if (!state) return;
+
+  if (state.allExercises.length === 0) { showToast('Add exercises to your library first'); return; }
+
+  const usedIds = getAllUsedExerciseIds(state.items);
+  const options = state.allExercises
+    .filter(ex => !usedIds.has(ex.id))
+    .map(ex => `<option value="${ex.id}">${escapeHTML(ex.name)} (${(ex.measurements || []).join(', ')})</option>`)
+    .join('');
+
+  if (!options) { showToast('All exercises already added'); return; }
+
+  showModal('Add to Superset', async () => `
+    <div class="input-group">
+      <label class="input-label">Select Exercise</label>
+      <select id="add-superset-ex-select" class="select">
+        <option value="">Choose...</option>
+        ${options}
+      </select>
+    </div>
+  `, async () => {
+    const val = document.getElementById('add-superset-ex-select').value;
+    if (!val) { showToast('Select an exercise'); return false; }
+    const ss = window._workoutEditorState.items[supersetIdx];
+    if (!ss) return false;
+    ss.exercises.push({ exerciseId: parseInt(val) });
+    refreshWorkoutItemsList();
+    return true;
+  }, 'Add');
+}
+
+function updateStandaloneExerciseSets(idx, value) {
+  if (!window._workoutEditorState) return;
+  window._workoutEditorState.items[idx].targetSets = parseInt(value) || 1;
+}
+
+function updateSupersetSets(idx, value) {
+  if (!window._workoutEditorState) return;
+  window._workoutEditorState.items[idx].targetSets = parseInt(value) || 1;
+}
+
+function removeItemFromWorkout(idx) {
+  if (!window._workoutEditorState) return;
+  window._workoutEditorState.items.splice(idx, 1);
+  refreshWorkoutItemsList();
+}
+
+function removeExerciseFromSuperset(supersetIdx, exIdx) {
+  const state = window._workoutEditorState;
+  if (!state) return;
+  const superset = state.items[supersetIdx];
+  if (!superset) return;
+  const [removed] = superset.exercises.splice(exIdx, 1);
+  state.items.push({ type: 'exercise', exerciseId: removed.exerciseId, targetSets: superset.targetSets || 3 });
+  refreshWorkoutItemsList();
+}
+
+function deleteSupersetBox(supersetIdx) {
+  const state = window._workoutEditorState;
+  if (!state) return;
+  const superset = state.items[supersetIdx];
+  if (!superset) return;
+
+  if (superset.exercises.length === 0) {
+    state.items.splice(supersetIdx, 1);
+    refreshWorkoutItemsList();
     return;
   }
 
-  showModal('Add Exercise', async () => {
-    return `
-      <div class="input-group">
-        <label class="input-label">Select Exercise</label>
-        <select id="add-ex-select" class="select">
-          <option value="">Choose...</option>
-          ${options}
-        </select>
-      </div>
-    `;
-  }, async () => {
-    const val = document.getElementById('add-ex-select').value;
-    if (!val) { showToast('Select an exercise'); return false; }
-    const exId = parseInt(val);
-    if (!window._workoutEditorState) return false;
-    window._workoutEditorState.exercises.push({ exerciseId: exId, targetSets: 3 });
-    const container = document.getElementById('workout-exercise-list');
-    renderWorkoutExerciseRows(container, window._workoutEditorState.exercises, window._workoutEditorState.allExercises);
+  showModal('Delete Superset', async () => `
+    <p style="color:var(--text-2);font-size:15px;line-height:1.5;margin-bottom:16px">
+      What should happen to the exercises in this superset?
+    </p>
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer">
+        <input type="radio" name="superset-delete-mode" value="keep" checked style="margin-top:2px">
+        <span>
+          <div style="font-size:14px;font-weight:500">Keep exercises as standalone</div>
+          <div style="font-size:12px;color:var(--text-3);margin-top:2px">Exercises remain in the workout</div>
+        </span>
+      </label>
+      <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer">
+        <input type="radio" name="superset-delete-mode" value="delete" style="margin-top:2px">
+        <span>
+          <div style="font-size:14px;font-weight:500">Remove exercises too</div>
+          <div style="font-size:12px;color:var(--text-3);margin-top:2px">All exercises in this superset will be removed</div>
+        </span>
+      </label>
+    </div>
+  `, async () => {
+    const mode = document.querySelector('input[name="superset-delete-mode"]:checked')?.value || 'keep';
+    const ss = window._workoutEditorState.items[supersetIdx];
+    if (!ss) return true;
+    if (mode === 'keep') {
+      const standalones = ss.exercises.map(e => ({ type: 'exercise', exerciseId: e.exerciseId, targetSets: ss.targetSets || 3 }));
+      window._workoutEditorState.items.splice(supersetIdx, 1, ...standalones);
+    } else {
+      window._workoutEditorState.items.splice(supersetIdx, 1);
+    }
+    refreshWorkoutItemsList();
     return true;
-  }, 'Add');
+  }, 'Confirm', 'btn-danger');
+}
+
+function moveItem(idx, direction) {
+  const state = window._workoutEditorState;
+  if (!state) return;
+  const newIdx = idx + direction;
+  if (newIdx < 0 || newIdx >= state.items.length) return;
+  [state.items[idx], state.items[newIdx]] = [state.items[newIdx], state.items[idx]];
+  refreshWorkoutItemsList();
+}
+
+function moveExerciseInSuperset(supersetIdx, exIdx, direction) {
+  const state = window._workoutEditorState;
+  if (!state) return;
+  const superset = state.items[supersetIdx];
+  if (!superset) return;
+  const newIdx = exIdx + direction;
+  if (newIdx < 0 || newIdx >= superset.exercises.length) return;
+  [superset.exercises[exIdx], superset.exercises[newIdx]] = [superset.exercises[newIdx], superset.exercises[exIdx]];
+  refreshWorkoutItemsList();
 }
 
 async function saveWorkoutFromEditor(existingId) {
@@ -224,15 +540,16 @@ async function saveWorkoutFromEditor(existingId) {
   if (!name) { showToast('Workout name required'); return; }
 
   const state = window._workoutEditorState;
-  if (!state || state.exercises.length === 0) {
-    showToast('Add at least one exercise');
-    return;
+  if (!state || state.items.length === 0) { showToast('Add at least one exercise'); return; }
+
+  for (const item of state.items) {
+    if (item.type === 'superset' && item.exercises.length < 2) {
+      showToast('Each superset needs at least 2 exercises');
+      return;
+    }
   }
 
-  const workout = {
-    name,
-    exercises: state.exercises
-  };
+  const workout = { name, items: state.items };
   if (existingId) workout.id = existingId;
 
   await saveWorkout(workout);
@@ -251,16 +568,4 @@ async function confirmDeleteWorkout(id, name) {
     renderWorkoutsView();
     return true;
   }, 'Delete', 'btn-danger');
-}
-
-function moveWorkoutExercise(idx, direction) {
-  const state = window._workoutEditorState;
-  if (!state) return;
-  const newIdx = idx + direction;
-  if (newIdx < 0 || newIdx >= state.exercises.length) return;
-  const tmp = state.exercises[idx];
-  state.exercises[idx] = state.exercises[newIdx];
-  state.exercises[newIdx] = tmp;
-  const container = document.getElementById('workout-exercise-list');
-  renderWorkoutExerciseRows(container, state.exercises, state.allExercises);
 }

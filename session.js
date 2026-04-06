@@ -4,7 +4,7 @@
 
 let _restTimerInterval = null;
 let _restTimerSeconds = 90;
-let _sessionState = null; // { workoutId, exerciseBlocks: [{exerciseId, sets: [{...}], flagNext}] }
+let _sessionState = null; // { workoutId, workoutName, exerciseBlocks: [...] }
 
 async function renderHomeView() {
   setPageTitle('LIFT');
@@ -31,8 +31,18 @@ async function renderHomeView() {
 
   // Active session resume card
   if (_sessionState) {
-    const totalSets = _sessionState.exerciseBlocks.reduce((sum, b) => sum + b.sets.length, 0);
-    const completedSets = _sessionState.exerciseBlocks.reduce((sum, b) => sum + b.sets.filter(s => s.completed).length, 0);
+    let totalSets = 0, completedSets = 0;
+    for (const block of _sessionState.exerciseBlocks) {
+      if (block.type === 'superset') {
+        totalSets += block.targetSets;
+        for (let i = 0; i < block.targetSets; i++) {
+          if (block.exercises.every(ex => ex.sets[i] && ex.sets[i].completed)) completedSets++;
+        }
+      } else {
+        totalSets += block.sets.length;
+        completedSets += block.sets.filter(s => s.completed).length;
+      }
+    }
     const resumeCard = document.createElement('div');
     resumeCard.className = 'active-session-card';
     resumeCard.innerHTML = `
@@ -50,7 +60,8 @@ async function renderHomeView() {
   if (next && next.workout) {
     const card = document.createElement('div');
     card.className = 'next-workout-card';
-    const exCount = (next.workout.exercises || []).length;
+    const normalized = normalizeWorkoutItems(next.workout);
+    const exCount = countItemsExercises(normalized.items || []);
     card.innerHTML = `
       <div class="next-workout-label">▸ Next Up</div>
       <div class="next-workout-name">${escapeHTML(next.workout.name)}</div>
@@ -86,7 +97,8 @@ async function renderHomeView() {
 
   workouts.forEach(w => {
     const isNext = w.id === nextWorkoutId;
-    const exCount = (w.exercises || []).length;
+    const normalized = normalizeWorkoutItems(w);
+    const exCount = countItemsExercises(normalized.items || []);
     const item = document.createElement('div');
     item.className = `workout-select-item ${isNext ? 'next-up' : ''}`;
     item.innerHTML = `
@@ -104,34 +116,52 @@ async function renderHomeView() {
 }
 
 async function startSession(workoutId, isScheduled = false) {
-  // If user picks a workout that's not the scheduled one, re-anchor the program
   if (!isScheduled) {
     await anchorProgramToWorkout(workoutId);
   }
 
-  const workout = await getWorkout(workoutId);
-  if (!workout) return;
+  const rawWorkout = await getWorkout(workoutId);
+  if (!rawWorkout) return;
+  const workout = normalizeWorkoutItems(rawWorkout);
 
   _restTimerSeconds = await getSetting('restTimer', 90);
 
-  // Load previous logs for each exercise
   const exerciseBlocks = [];
-  for (const we of (workout.exercises || [])) {
-    const ex = await getExercise(we.exerciseId);
-    if (!ex) continue;
-    const lastLog = await getLastExerciseLog(we.exerciseId);
-    const sets = [];
-    for (let i = 0; i < (we.targetSets || 3); i++) {
-      sets.push({ reps: '', weight: '', time: '', completed: false });
+
+  for (const item of (workout.items || [])) {
+    if (item.type === 'exercise') {
+      const ex = await getExercise(item.exerciseId);
+      if (!ex) continue;
+      const lastLog = await getLastExerciseLog(item.exerciseId);
+      const sets = Array.from({ length: item.targetSets || 3 }, () => ({ reps: '', weight: '', time: '', completed: false }));
+      exerciseBlocks.push({
+        type: 'exercise',
+        exerciseId: item.exerciseId,
+        exercise: ex,
+        targetSets: item.targetSets || 3,
+        sets,
+        flagNext: lastLog ? lastLog.flagNext : false,
+        lastLog
+      });
+    } else if (item.type === 'superset') {
+      const exercises = [];
+      for (const exItem of (item.exercises || [])) {
+        const ex = await getExercise(exItem.exerciseId);
+        if (!ex) continue;
+        const lastLog = await getLastExerciseLog(exItem.exerciseId);
+        const sets = Array.from({ length: item.targetSets || 3 }, () => ({ reps: '', weight: '', time: '', completed: false }));
+        exercises.push({
+          exerciseId: exItem.exerciseId,
+          exercise: ex,
+          sets,
+          flagNext: lastLog ? lastLog.flagNext : false,
+          lastLog
+        });
+      }
+      if (exercises.length > 0) {
+        exerciseBlocks.push({ type: 'superset', targetSets: item.targetSets || 3, exercises });
+      }
     }
-    exerciseBlocks.push({
-      exerciseId: we.exerciseId,
-      exercise: ex,
-      targetSets: we.targetSets || 3,
-      sets,
-      flagNext: lastLog ? lastLog.flagNext : false,
-      lastLog
-    });
   }
 
   _sessionState = { workoutId, workoutName: workout.name, exerciseBlocks };
@@ -148,64 +178,216 @@ function renderSessionView() {
   content.innerHTML = '';
 
   _sessionState.exerciseBlocks.forEach((block, blockIdx) => {
-    const exBlock = document.createElement('div');
-    exBlock.className = 'session-exercise-block animate-in';
-    exBlock.id = `ex-block-${blockIdx}`;
-
-    // Exercise header
-    const exHeader = document.createElement('div');
-    exHeader.className = 'session-exercise-header';
-
-    const nameEl = document.createElement('div');
-    nameEl.className = 'session-exercise-name';
-
-    // Yellow flag if previous log flagged increment
-    if (block.flagNext) {
-      const flag = document.createElement('span');
-      flag.className = 'flag-icon';
-      flag.title = 'Increase weight/reps this session';
-      flag.textContent = '🟠';
-      nameEl.appendChild(flag);
+    if (block.type === 'superset') {
+      content.appendChild(buildSupersetBlock(block, blockIdx));
+    } else {
+      content.appendChild(buildStandaloneExerciseBlock(block, blockIdx));
     }
-    nameEl.appendChild(document.createTextNode(block.exercise.name));
-    exHeader.appendChild(nameEl);
-
-    // Last session summary
-    if (block.lastLog) {
-      const lastSummary = document.createElement('div');
-      lastSummary.style.cssText = 'font-size:11px;color:var(--text-3)';
-      const lastSets = block.lastLog.sets || [];
-      lastSummary.textContent = `Last: ${summariseLastLog(lastSets, block.exercise.measurements)}`;
-      exHeader.appendChild(lastSummary);
-    }
-
-    exBlock.appendChild(exHeader);
-
-    // Set rows
-    block.sets.forEach((set, setIdx) => {
-      const row = buildSetRow(block, blockIdx, setIdx);
-      exBlock.appendChild(row);
-    });
-
-    // Increment flag checkbox
-    const flagRow = document.createElement('div');
-    flagRow.className = 'session-exercise-checkbox';
-    flagRow.innerHTML = `
-      <input type="checkbox" id="flag-${blockIdx}" ${block.flagNext ? 'checked' : ''} onchange="updateFlagNext(${blockIdx}, this.checked)">
-      <label for="flag-${blockIdx}" style="cursor:pointer">Flag for increment next session 🟠</label>
-    `;
-    exBlock.appendChild(flagRow);
-
-    content.appendChild(exBlock);
   });
 
-  // Bottom complete button
   const bottomComplete = document.createElement('div');
   bottomComplete.style.cssText = 'padding: 16px;';
   bottomComplete.innerHTML = `
     <button class="btn btn-success btn-full btn-lg" onclick="confirmCompleteWorkout()">Mark Workout Complete ✓</button>
   `;
   content.appendChild(bottomComplete);
+}
+
+function buildStandaloneExerciseBlock(block, blockIdx) {
+  const exBlock = document.createElement('div');
+  exBlock.className = 'session-exercise-block animate-in';
+  exBlock.id = `ex-block-${blockIdx}`;
+
+  const exHeader = document.createElement('div');
+  exHeader.className = 'session-exercise-header';
+
+  const nameEl = document.createElement('div');
+  nameEl.className = 'session-exercise-name';
+  if (block.flagNext) {
+    const flag = document.createElement('span');
+    flag.className = 'flag-icon';
+    flag.title = 'Increase weight/reps this session';
+    flag.textContent = '🟠';
+    nameEl.appendChild(flag);
+  }
+  nameEl.appendChild(document.createTextNode(block.exercise.name));
+  exHeader.appendChild(nameEl);
+
+  if (block.lastLog) {
+    const lastSummary = document.createElement('div');
+    lastSummary.style.cssText = 'font-size:11px;color:var(--text-3)';
+    lastSummary.textContent = `Last: ${summariseLastLog(block.lastLog.sets || [], block.exercise.measurements)}`;
+    exHeader.appendChild(lastSummary);
+  }
+  exBlock.appendChild(exHeader);
+
+  block.sets.forEach((set, setIdx) => {
+    exBlock.appendChild(buildSetRow(block, blockIdx, setIdx));
+  });
+
+  const flagRow = document.createElement('div');
+  flagRow.className = 'session-exercise-checkbox';
+  flagRow.innerHTML = `
+    <input type="checkbox" id="flag-${blockIdx}" ${block.flagNext ? 'checked' : ''} onchange="updateFlagNext(${blockIdx}, this.checked)">
+    <label for="flag-${blockIdx}" style="cursor:pointer">Flag for increment next session 🟠</label>
+  `;
+  exBlock.appendChild(flagRow);
+
+  return exBlock;
+}
+
+function buildSupersetBlock(block, blockIdx) {
+  const container = document.createElement('div');
+  container.className = 'session-superset-block animate-in';
+  container.id = `ex-block-${blockIdx}`;
+
+  const header = document.createElement('div');
+  header.className = 'session-superset-header';
+  header.innerHTML = `<span class="session-superset-label">Superset</span>`;
+  container.appendChild(header);
+
+  for (let roundIdx = 0; roundIdx < block.targetSets; roundIdx++) {
+    container.appendChild(buildSupersetRound(block, blockIdx, roundIdx));
+  }
+
+  // Flag checkboxes, one per exercise
+  const flagSection = document.createElement('div');
+  flagSection.className = 'session-superset-flags';
+  block.exercises.forEach((exBlock, exIdx) => {
+    const flagRow = document.createElement('div');
+    flagRow.className = 'session-exercise-checkbox';
+    flagRow.innerHTML = `
+      <input type="checkbox" id="flag-${blockIdx}-${exIdx}" ${exBlock.flagNext ? 'checked' : ''}
+        onchange="updateSupersetFlagNext(${blockIdx}, ${exIdx}, this.checked)">
+      <label for="flag-${blockIdx}-${exIdx}" style="cursor:pointer">
+        Flag ${escapeHTML(exBlock.exercise.name)} 🟠
+      </label>
+    `;
+    flagSection.appendChild(flagRow);
+  });
+  container.appendChild(flagSection);
+
+  return container;
+}
+
+function buildSupersetRound(block, blockIdx, roundIdx) {
+  const roundComplete = block.exercises.every(ex => ex.sets[roundIdx] && ex.sets[roundIdx].completed);
+
+  const round = document.createElement('div');
+  round.className = `superset-round ${roundComplete ? 'completed' : ''}`;
+  round.id = `superset-round-${blockIdx}-${roundIdx}`;
+
+  const roundHeader = document.createElement('div');
+  roundHeader.className = 'superset-round-header';
+  roundHeader.textContent = `Round ${roundIdx + 1}`;
+  round.appendChild(roundHeader);
+
+  block.exercises.forEach((exBlock, exIdx) => {
+    const set = exBlock.sets[roundIdx];
+    const lastSets = exBlock.lastLog ? (exBlock.lastLog.sets || []) : [];
+    const lastSet = lastSets[roundIdx] || null;
+    const measurements = exBlock.exercise.measurements || [];
+
+    // Mini exercise header with name and last session summary
+    const exHeader = document.createElement('div');
+    exHeader.className = 'superset-ex-mini-header';
+    if (exBlock.flagNext) {
+      exHeader.appendChild(document.createTextNode('🟠 '));
+    }
+    exHeader.appendChild(document.createTextNode(exBlock.exercise.name));
+    if (exBlock.lastLog) {
+      const lastSummary = document.createElement('span');
+      lastSummary.style.cssText = 'font-size:10px;color:var(--text-3);margin-left:6px';
+      lastSummary.textContent = `Last: ${summariseLastLog(exBlock.lastLog.sets || [], measurements)}`;
+      exHeader.appendChild(lastSummary);
+    }
+    round.appendChild(exHeader);
+
+    // Input row (no individual complete button — shared at round level)
+    const inputRow = document.createElement('div');
+    inputRow.className = `session-set-row ${roundComplete ? 'completed' : ''}`;
+    inputRow.style.cssText = 'border-bottom:none;padding-bottom:4px';
+
+    const setNum = document.createElement('div');
+    setNum.className = 'set-number';
+    setNum.textContent = roundIdx + 1;
+    inputRow.appendChild(setNum);
+
+    const inputs = document.createElement('div');
+    inputs.className = 'set-inputs';
+
+    measurements.forEach(m => {
+      const group = document.createElement('div');
+      group.className = 'set-input-group';
+      let labelText = m;
+      if (m === 'weight') labelText = exBlock.exercise.unit || 'kg';
+      if (m === 'time') labelText = 'sec';
+      group.innerHTML = `<span class="set-input-label">${labelText}</span>`;
+
+      const input = document.createElement('input');
+      input.className = 'set-input';
+      input.type = 'number';
+      input.min = '0';
+      input.inputMode = 'decimal';
+      input.value = set ? (set[m] || '') : '';
+      input.placeholder = lastSet && lastSet[m] ? lastSet[m] : '—';
+      input.disabled = roundComplete;
+      input.addEventListener('change', e => {
+        _sessionState.exerciseBlocks[blockIdx].exercises[exIdx].sets[roundIdx][m] = e.target.value;
+        saveActiveDraft(_sessionState);
+      });
+      group.appendChild(input);
+
+      if (lastSet && lastSet[m]) {
+        const prev = document.createElement('div');
+        prev.className = 'set-prev';
+        prev.textContent = `prev: ${lastSet[m]}`;
+        group.appendChild(prev);
+      }
+
+      inputs.appendChild(group);
+    });
+
+    inputRow.appendChild(inputs);
+    round.appendChild(inputRow);
+  });
+
+  // Shared mark complete button for this round
+  const completeRow = document.createElement('div');
+  completeRow.className = 'superset-round-complete-row';
+  const completeBtn = document.createElement('button');
+  completeBtn.className = `complete-btn ${roundComplete ? 'done' : ''}`;
+  completeBtn.textContent = roundComplete ? '✓' : '○';
+  completeBtn.addEventListener('click', () => toggleSupersetRound(blockIdx, roundIdx));
+  completeRow.appendChild(completeBtn);
+  round.appendChild(completeRow);
+
+  return round;
+}
+
+async function toggleSupersetRound(blockIdx, roundIdx) {
+  const block = _sessionState.exerciseBlocks[blockIdx];
+  const wasComplete = block.exercises.every(ex => ex.sets[roundIdx] && ex.sets[roundIdx].completed);
+  const newComplete = !wasComplete;
+
+  for (const ex of block.exercises) {
+    if (ex.sets[roundIdx]) ex.sets[roundIdx].completed = newComplete;
+  }
+
+  const roundEl = document.getElementById(`superset-round-${blockIdx}-${roundIdx}`);
+  if (roundEl) roundEl.replaceWith(buildSupersetRound(block, blockIdx, roundIdx));
+
+  saveActiveDraft(_sessionState);
+
+  if (newComplete) {
+    const timerEnabled = await getSetting('timerEnabled', true);
+    if (timerEnabled) startRestTimer();
+  }
+}
+
+function updateSupersetFlagNext(blockIdx, exIdx, value) {
+  _sessionState.exerciseBlocks[blockIdx].exercises[exIdx].flagNext = value;
+  saveActiveDraft(_sessionState);
 }
 
 function buildSetRow(block, blockIdx, setIdx) {
@@ -262,7 +444,6 @@ function buildSetRow(block, blockIdx, setIdx) {
 
   row.appendChild(inputs);
 
-  // Complete button
   const completeBtn = document.createElement('button');
   completeBtn.className = `complete-btn ${set.completed ? 'done' : ''}`;
   completeBtn.textContent = set.completed ? '✓' : '○';
@@ -277,19 +458,15 @@ async function toggleSetComplete(blockIdx, setIdx) {
   const set = block.sets[setIdx];
   set.completed = !set.completed;
 
-  // Re-render just this row
   const row = document.getElementById(`set-row-${blockIdx}-${setIdx}`);
-  if (row) {
-    const newRow = buildSetRow(block, blockIdx, setIdx);
-    row.replaceWith(newRow);
-  }
+  if (row) row.replaceWith(buildSetRow(block, blockIdx, setIdx));
 
   saveActiveDraft(_sessionState);
 
-if (set.completed) {
-  const timerEnabled = await getSetting('timerEnabled', true);
-  if (timerEnabled) startRestTimer();
-}
+  if (set.completed) {
+    const timerEnabled = await getSetting('timerEnabled', true);
+    if (timerEnabled) startRestTimer();
+  }
 }
 
 function updateFlagNext(blockIdx, value) {
@@ -349,11 +526,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
 /* ---- Complete Workout ---- */
 async function confirmCompleteWorkout() {
-  // Check for incomplete sets
   let hasIncomplete = false;
   for (const block of _sessionState.exerciseBlocks) {
-    for (const set of block.sets) {
-      if (!set.completed) { hasIncomplete = true; break; }
+    if (block.type === 'superset') {
+      for (let i = 0; i < block.targetSets; i++) {
+        if (!block.exercises.every(ex => ex.sets[i] && ex.sets[i].completed)) {
+          hasIncomplete = true;
+          break;
+        }
+      }
+    } else {
+      for (const set of block.sets) {
+        if (!set.completed) { hasIncomplete = true; break; }
+      }
     }
     if (hasIncomplete) break;
   }
@@ -381,23 +566,20 @@ async function finishWorkout() {
     completedAt: now
   });
 
-  // Save exercise logs and prune history
   for (const block of _sessionState.exerciseBlocks) {
-    await saveExerciseLog({
-      exerciseId: block.exerciseId,
-      sessionId,
-      sets: block.sets,
-      flagNext: block.flagNext
-    });
-    await pruneExerciseLogs(block.exerciseId);
+    if (block.type === 'superset') {
+      for (const exBlock of block.exercises) {
+        await saveExerciseLog({ exerciseId: exBlock.exerciseId, sessionId, sets: exBlock.sets, flagNext: exBlock.flagNext });
+        await pruneExerciseLogs(exBlock.exerciseId);
+      }
+    } else {
+      await saveExerciseLog({ exerciseId: block.exerciseId, sessionId, sets: block.sets, flagNext: block.flagNext });
+      await pruneExerciseLogs(block.exerciseId);
+    }
   }
 
-  // Advance program
   await advanceProgramAfterWorkout(_sessionState.workoutId);
-
   _sessionState = null;
-
-  // Show completion screen
   showWorkoutCompleteScreen();
 }
 
