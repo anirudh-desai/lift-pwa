@@ -227,9 +227,7 @@ function buildStandaloneExerciseBlock(block, blockIdx, notesCollapsed = false) {
   }
   exBlock.appendChild(exHeader);
 
-  if (block.exercise.notes) {
-    exBlock.appendChild(buildNotesBar(block.exercise, blockIdx, null, notesCollapsed));
-  }
+  exBlock.appendChild(buildNotesBar(block.exercise, blockIdx, null, notesCollapsed));
 
   block.sets.forEach((set, setIdx) => {
     exBlock.appendChild(buildSetRow(block, blockIdx, setIdx));
@@ -258,9 +256,7 @@ function buildSupersetBlock(block, blockIdx, notesCollapsed = false) {
 
   // Notes per exercise within the superset (shown once, above rounds)
   block.exercises.forEach((exBlock, exIdx) => {
-    if (exBlock.exercise.notes) {
-      container.appendChild(buildNotesBar(exBlock.exercise, blockIdx, exIdx, notesCollapsed));
-    }
+    container.appendChild(buildNotesBar(exBlock.exercise, blockIdx, exIdx, notesCollapsed));
   });
 
   for (let roundIdx = 0; roundIdx < block.targetSets; roundIdx++) {
@@ -511,7 +507,9 @@ function buildNotesBar(exercise, blockIdx, exIdx, collapsed = false) {
   bar.className = 'session-notes-bar';
   bar.id = exIdx !== null ? `notes-bar-${blockIdx}-${exIdx}` : `notes-bar-${blockIdx}`;
 
-  if (collapsed) {
+  const hasNotes = !!exercise.notes;
+
+  if (collapsed && hasNotes) {
     bar.classList.add('collapsed');
     const toggle = document.createElement('button');
     toggle.className = 'session-notes-toggle';
@@ -522,6 +520,13 @@ function buildNotesBar(exercise, blockIdx, exIdx, collapsed = false) {
       renderNotesBarContent(bar, exercise, blockIdx, exIdx);
     });
     bar.appendChild(toggle);
+  } else if (!hasNotes) {
+    bar.classList.add('collapsed');
+    const addBtn = document.createElement('button');
+    addBtn.className = 'session-notes-toggle';
+    addBtn.textContent = '+ Add note';
+    addBtn.addEventListener('click', () => editExerciseNotes(exercise, blockIdx, exIdx));
+    bar.appendChild(addBtn);
   } else {
     renderNotesBarContent(bar, exercise, blockIdx, exIdx);
   }
@@ -561,28 +566,10 @@ async function editExerciseNotes(exercise, blockIdx, exIdx) {
     // Update the notes bar in the DOM
     const barId = exIdx !== null ? `notes-bar-${blockIdx}-${exIdx}` : `notes-bar-${blockIdx}`;
     const existing = document.getElementById(barId);
-
-    if (notes) {
-      const newBar = buildNotesBar(exercise, blockIdx, exIdx);
-      if (existing) {
-        existing.replaceWith(newBar);
-      } else {
-        // Insert notes bar after the exercise header / superset header
-        const blockEl = document.getElementById(`ex-block-${blockIdx}`);
-        if (blockEl) {
-          if (exIdx !== null) {
-            // For superset: insert after the superset header
-            const supersetHeader = blockEl.querySelector('.session-superset-header');
-            if (supersetHeader) supersetHeader.after(newBar);
-          } else {
-            // For standalone: insert after the exercise header
-            const exHeader = blockEl.querySelector('.session-exercise-header');
-            if (exHeader) exHeader.after(newBar);
-          }
-        }
-      }
-    } else if (existing) {
-      existing.remove();
+    const notesCollapsed = await getSetting('notesCollapsed', false);
+    const newBar = buildNotesBar(exercise, blockIdx, exIdx, notesCollapsed);
+    if (existing) {
+      existing.replaceWith(newBar);
     }
 
     return true;
