@@ -49,7 +49,10 @@ async function renderHomeView() {
       <div class="active-session-label">⚡ Workout In Progress</div>
       <div class="active-session-name">${escapeHTML(_sessionState.workoutName)}</div>
       <div class="active-session-meta">${completedSets} / ${totalSets} sets completed</div>
-      <button class="btn btn-primary btn-full" onclick="resumeSession()">Resume Workout</button>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <button class="btn btn-primary btn-full" onclick="resumeSession()">Resume Workout</button>
+        <button class="btn btn-danger btn-full" onclick="confirmAbortSession()">Abandon Workout</button>
+      </div>
     `;
     content.appendChild(resumeCard);
     return;
@@ -186,9 +189,10 @@ function renderSessionView() {
   });
 
   const bottomComplete = document.createElement('div');
-  bottomComplete.style.cssText = 'padding: 16px;';
+  bottomComplete.style.cssText = 'padding: 16px; display: flex; flex-direction: column; gap: 10px;';
   bottomComplete.innerHTML = `
     <button class="btn btn-success btn-full btn-lg" onclick="confirmCompleteWorkout()">Mark Workout Complete ✓</button>
+    <button class="btn btn-danger btn-full" onclick="confirmAbortSession()">Abandon Workout</button>
   `;
   content.appendChild(bottomComplete);
 }
