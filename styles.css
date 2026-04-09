@@ -155,6 +155,11 @@ body {
   position: absolute;
   left: 50%;
   transform: translateX(-50%);
+  max-width: calc(100% - 112px);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
 }
 .nav-btn {
   background: none;
@@ -921,6 +926,19 @@ body {
 }
 .drag-over-superset .superset-box-header {
   background: transparent;
+}
+
+/* ---- Item drop gap (between list items) ---- */
+.item-drop-gap {
+  height: 6px;
+  margin: 0 16px;
+  border-radius: 3px;
+  transition: height 0.15s, background 0.15s;
+}
+.item-drop-gap.drop-gap-active {
+  height: 20px;
+  background: var(--accent-dim);
+  border: 1px dashed var(--accent-border);
 }
 
 /* ---- Session View — Superset Block ---- */

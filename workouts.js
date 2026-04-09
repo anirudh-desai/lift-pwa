@@ -163,33 +163,63 @@ function refreshWorkoutItemsList() {
     return;
   }
 
-  // Drop target on main list: dragging a superset exercise out makes it standalone
-  container.addEventListener('dragover', e => {
-    if (!window._dragItem || window._dragItem.source !== 'superset') return;
-    if (e.target.closest && e.target.closest('.superset-box')) return;
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-  });
-  container.addEventListener('drop', e => {
-    if (!window._dragItem || window._dragItem.source !== 'superset') return;
-    if (e.target.closest && e.target.closest('.superset-box')) return;
-    e.preventDefault();
-    const drag = window._dragItem;
-    const state = window._workoutEditorState;
-    const superset = state.items[drag.itemIdx];
-    if (!superset || superset.type !== 'superset') return;
-    const [ex] = superset.exercises.splice(drag.exIdx, 1);
-    state.items.push({ type: 'exercise', exerciseId: ex.exerciseId, targetSets: superset.targetSets || 3 });
-    refreshWorkoutItemsList();
-  });
-
+  // Render items with a gap drop zone before each item and one at the end
   items.forEach((item, idx) => {
+    container.appendChild(buildDropGap(idx));
     if (item.type === 'exercise') {
       container.appendChild(buildStandaloneExerciseRow(item, idx, items, allExercises));
     } else if (item.type === 'superset') {
       container.appendChild(buildSupersetBox(item, idx, items, allExercises));
     }
   });
+  container.appendChild(buildDropGap(items.length));
+}
+
+// Gap drop zones sit between items and handle both standalone reordering
+// and superset-exercise extraction to a specific position.
+function buildDropGap(insertIdx) {
+  const gap = document.createElement('div');
+  gap.className = 'item-drop-gap';
+
+  gap.addEventListener('dragover', e => {
+    if (!window._dragItem) return;
+    // Skip if standalone dragged to same/adjacent position (no-op)
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    gap.classList.add('drop-gap-active');
+  });
+  gap.addEventListener('dragleave', () => gap.classList.remove('drop-gap-active'));
+  gap.addEventListener('drop', e => {
+    e.preventDefault();
+    gap.classList.remove('drop-gap-active');
+    if (!window._dragItem) return;
+    const drag = window._dragItem;
+    const state = window._workoutEditorState;
+
+    if (drag.source === 'standalone') {
+      const fromIdx = drag.itemIdx;
+      const draggedItem = state.items[fromIdx];
+      if (!draggedItem) return;
+      state.items.splice(fromIdx, 1);
+      // Adjust target index since we removed an item before it
+      const targetIdx = insertIdx > fromIdx ? insertIdx - 1 : insertIdx;
+      state.items.splice(targetIdx, 0, draggedItem);
+
+    } else if (drag.source === 'superset') {
+      const srcSuperset = state.items[drag.itemIdx];
+      if (!srcSuperset) return;
+      const ex = srcSuperset.exercises[drag.exIdx];
+      if (!ex) return;
+      srcSuperset.exercises.splice(drag.exIdx, 1);
+      // Insert as standalone at the gap position
+      // No index adjustment needed: superset item stays in the array
+      state.items.splice(insertIdx, 0, { type: 'exercise', exerciseId: ex.exerciseId, targetSets: srcSuperset.targetSets || 3 });
+    }
+
+    refreshWorkoutItemsList();
+  });
+
+  return gap;
 }
 
 function buildStandaloneExerciseRow(item, idx, items, allExercises) {
@@ -317,7 +347,6 @@ function buildSupersetBox(item, idx, items, allExercises) {
     if (!window._dragItem) return;
     if (window._dragItem.source === 'superset' && window._dragItem.itemIdx === idx) return;
     e.preventDefault();
-    e.stopPropagation();
     e.dataTransfer.dropEffect = 'move';
     box.classList.add('drag-over-superset');
   });
@@ -326,7 +355,6 @@ function buildSupersetBox(item, idx, items, allExercises) {
   });
   box.addEventListener('drop', e => {
     e.preventDefault();
-    e.stopPropagation();
     box.classList.remove('drag-over-superset');
     if (!window._dragItem) return;
     const drag = window._dragItem;
