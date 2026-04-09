@@ -36,15 +36,24 @@ All functions are globals on `window` — there are no ES modules or imports.
 
 **Active session state** — `session.js` holds a `_sessionState` object in memory:
 ```
-{ workoutId, workoutName, exerciseBlocks: [{ exerciseId, exercise, targetSets, sets, flagNext, lastLog }] }
+{
+  workoutId, workoutName,
+  exerciseBlocks: [
+    // standalone:
+    { type: 'exercise', exerciseId, exercise, targetSets, sets, flagNext, lastLog }
+    // superset:
+    { type: 'superset', targetSets, exercises: [{ exerciseId, exercise, sets, flagNext, lastLog }] }
+  ]
+}
 ```
-Session is saved to IndexedDB only on completion. In-progress state is persisted continuously to the `activeDraft` settings key so sessions survive page refreshes. The home view checks for an `activeDraft` on render and shows a "Workout In Progress" card. Draft is cleared only on completion or abandonment (`clearActiveDraft()`). Key functions: `saveActiveDraft()`, `getActiveDraft()`, `resumeSession()`, `confirmAbortSession()`, `finishWorkout()`.
+Session is saved to IndexedDB only on completion. In-progress state is persisted continuously to the `activeDraft` settings key so sessions survive page refreshes. The home view checks for an `activeDraft` on render and shows a "Workout In Progress" card with both Resume and Abandon options. Draft is cleared only on completion or abandonment (`clearActiveDraft()`). Key functions: `saveActiveDraft()`, `getActiveDraft()`, `resumeSession()`, `confirmAbortSession()`, `finishWorkout()`.
 
 **Settings** — stored as key-value pairs in the `settings` store. Current keys:
 - `restTimer` — rest duration in seconds (default 90)
 - `timerEnabled` — bool, whether rest timer auto-starts after set completion (default true)
 - `activeProgram` — ID of the currently active program, or null
 - `activeDraft` — serialized in-progress session state for resume-after-refresh (see Active session state)
+- `notesCollapsed` — bool, whether exercise notes are hidden until tapped during a session (default false)
 
 The weight unit (`kg`/`lbs`) is stored per-exercise as `exercise.unit`, not as a global setting.
 
@@ -56,11 +65,36 @@ The weight unit (`kg`/`lbs`) is stored per-exercise as `exercise.unit`, not as a
 
 Key object shapes used across the codebase (not stored in schema — inferred from code):
 
-- **Exercise**: `{ id, name, muscleGroup, measurements: ['reps'|'weight'|'time'], unit?: 'kg'|'lbs' }`
-- **Workout**: `{ id, name, exercises: [{ exerciseId, targetSets }] }`
+- **Exercise**: `{ id, name, muscleGroup, measurements: ['reps'|'weight'|'time'], unit?: 'kg'|'lbs', notes?: string }`
+- **Workout**: `{ id, name, items: [StandaloneExercise | Superset] }` where `StandaloneExercise = { type: 'exercise', exerciseId, targetSets }` and `Superset = { type: 'superset', targetSets, exercises: [{ exerciseId }] }`. Old workouts using `exercises: []` are auto-normalized via `normalizeWorkoutItems()` on load.
 - **Program**: `{ id, name, workoutIds: [workoutId] }` — `programState` tracks `{ programId, nextWorkoutIndex }`. Workouts cycle using modulo wrap-around. When a user manually selects an out-of-sequence workout, the program is re-anchored so the next scheduled workout follows the selected one. Key functions: `getNextWorkoutInProgram()`, `advanceProgramAfterWorkout(workoutId)`, `anchorProgramToWorkout(workoutId)`.
 - **Session**: `{ id, workoutId, workoutName, completedAt: timestamp }`
 - **ExerciseLog**: `{ id, exerciseId, sessionId, sets: [{ reps, weight, time, completed }], flagNext }` — `flagNext` is a boolean the user can set to remind themselves to increase weight/reps next session. If the previous session's log had `flagNext` set, the 🟠 flag is shown at the start of that exercise in the next session.
+
+## Supersets
+
+Workouts can contain a mix of standalone exercises and superset blocks. A superset has one shared `targetSets` count that applies to all exercises within it.
+
+**Workout builder** (`workouts.js`):
+- `+ Superset` button adds a superset box; `+ Exercise` adds a standalone item
+- Exercises can be dragged into/out of superset boxes via HTML5 drag-and-drop; gap drop zones between items allow precise positioning
+- Each superset box has its own `+ Add Exercise` button (adds directly into that superset)
+- Deleting a superset prompts: keep exercises as standalone, or remove them too
+- A new exercise can be created inline from either add-exercise modal without leaving the editor (`openCreateExerciseFromEditor`)
+- Validation: each superset must have ≥2 exercises before saving
+
+**Session view** (`session.js`):
+- Supersets render as sequential rounds: all exercises' inputs for round N are grouped together with one shared Mark Complete button
+- Marking a round complete sets all exercises' sets for that round and starts the rest timer
+- Each exercise within a superset has its own flag checkbox at the bottom of the block
+- `finishWorkout()` saves a separate `exerciseLog` per exercise within a superset
+
+## Exercise Notes
+
+Exercises have an optional `notes` field (free text) for posture cues etc.
+- Editable from the exercise library modal and from within an active session
+- In the session view, notes always appear below the exercise header. If no note exists a subtle **+ Add note** link is shown instead
+- If the `notesCollapsed` setting is on, notes with content show as **📋 Show notes** until tapped; exercises without notes always show **+ Add note** regardless of the setting
 
 ## Data Export
 
