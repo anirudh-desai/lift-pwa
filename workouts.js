@@ -406,11 +406,24 @@ function getAllUsedExerciseIds(items) {
   return ids;
 }
 
+function buildExerciseSelectModalContent(selectId, options) {
+  return `
+    <div class="input-group">
+      <label class="input-label">Select Exercise</label>
+      <select id="${selectId}" class="select">
+        <option value="">Choose...</option>
+        ${options}
+      </select>
+    </div>
+    <div style="text-align:center;margin-top:4px">
+      <button type="button" class="btn btn-ghost btn-sm" style="font-size:12px" id="create-new-ex-btn">+ Create New Exercise</button>
+    </div>
+  `;
+}
+
 function openAddExerciseToWorkout() {
   const state = window._workoutEditorState;
   if (!state) return;
-
-  if (state.allExercises.length === 0) { showToast('Add exercises to your library first'); return; }
 
   const usedIds = getAllUsedExerciseIds(state.items);
   const options = state.allExercises
@@ -418,17 +431,14 @@ function openAddExerciseToWorkout() {
     .map(ex => `<option value="${ex.id}">${escapeHTML(ex.name)} (${(ex.measurements || []).join(', ')})</option>`)
     .join('');
 
-  if (!options) { showToast('All exercises already added'); return; }
-
-  showModal('Add Exercise', async () => `
-    <div class="input-group">
-      <label class="input-label">Select Exercise</label>
-      <select id="add-ex-select" class="select">
-        <option value="">Choose...</option>
-        ${options}
-      </select>
-    </div>
-  `, async () => {
+  showModal('Add Exercise', async () => {
+    const html = buildExerciseSelectModalContent('add-ex-select', options);
+    setTimeout(() => {
+      const btn = document.getElementById('create-new-ex-btn');
+      if (btn) btn.addEventListener('click', () => { closeModal(); openCreateExerciseFromEditor(null); });
+    }, 0);
+    return html;
+  }, async () => {
     const val = document.getElementById('add-ex-select').value;
     if (!val) { showToast('Select an exercise'); return false; }
     window._workoutEditorState.items.push({ type: 'exercise', exerciseId: parseInt(val), targetSets: 3 });
@@ -441,25 +451,20 @@ function openAddExerciseToSuperset(supersetIdx) {
   const state = window._workoutEditorState;
   if (!state) return;
 
-  if (state.allExercises.length === 0) { showToast('Add exercises to your library first'); return; }
-
   const usedIds = getAllUsedExerciseIds(state.items);
   const options = state.allExercises
     .filter(ex => !usedIds.has(ex.id))
     .map(ex => `<option value="${ex.id}">${escapeHTML(ex.name)} (${(ex.measurements || []).join(', ')})</option>`)
     .join('');
 
-  if (!options) { showToast('All exercises already added'); return; }
-
-  showModal('Add to Superset', async () => `
-    <div class="input-group">
-      <label class="input-label">Select Exercise</label>
-      <select id="add-superset-ex-select" class="select">
-        <option value="">Choose...</option>
-        ${options}
-      </select>
-    </div>
-  `, async () => {
+  showModal('Add to Superset', async () => {
+    const html = buildExerciseSelectModalContent('add-superset-ex-select', options);
+    setTimeout(() => {
+      const btn = document.getElementById('create-new-ex-btn');
+      if (btn) btn.addEventListener('click', () => { closeModal(); openCreateExerciseFromEditor(supersetIdx); });
+    }, 0);
+    return html;
+  }, async () => {
     const val = document.getElementById('add-superset-ex-select').value;
     if (!val) { showToast('Select an exercise'); return false; }
     const ss = window._workoutEditorState.items[supersetIdx];
@@ -468,6 +473,75 @@ function openAddExerciseToSuperset(supersetIdx) {
     refreshWorkoutItemsList();
     return true;
   }, 'Add');
+}
+
+// Create a new exercise from within the workout editor.
+// supersetIdx: if set, adds the new exercise to that superset; otherwise adds standalone.
+function openCreateExerciseFromEditor(supersetIdx) {
+  const measurementChecks = MEASUREMENT_TYPES.map(m => `
+    <label class="checkbox-pill" id="pill-${m.key}">
+      <input type="checkbox" name="measurements" value="${m.key}" onchange="togglePill(this)">
+      ${m.label}
+    </label>
+  `).join('');
+
+  const muscleOptions = MUSCLE_GROUPS.map(g => `<option value="${g}">${g}</option>`).join('');
+
+  showModal('New Exercise', async () => `
+    <div class="input-group">
+      <label class="input-label">Exercise Name</label>
+      <input id="ex-name" class="input" type="text" placeholder="e.g. Overhead Press">
+    </div>
+    <div class="input-group">
+      <label class="input-label">Muscle Group</label>
+      <select id="ex-muscle" class="select">
+        <option value="">Select...</option>
+        ${muscleOptions}
+      </select>
+    </div>
+    <div class="input-group">
+      <label class="input-label">Measurements</label>
+      <div class="checkbox-group">${measurementChecks}</div>
+    </div>
+    <div class="input-group" id="unit-row" style="display:none">
+      <label class="input-label">Weight Unit</label>
+      <input type="hidden" id="ex-unit-hidden" value="kg">
+      <div style="display:flex;gap:8px">
+        <button type="button" class="btn btn-sm btn-primary" onclick="selectExUnit('kg', this)">kg</button>
+        <button type="button" class="btn btn-sm btn-ghost" onclick="selectExUnit('lbs', this)">lbs</button>
+      </div>
+    </div>
+  `, async () => {
+    const name = document.getElementById('ex-name').value.trim();
+    const muscleGroup = document.getElementById('ex-muscle').value;
+    const checked = [...document.querySelectorAll('input[name="measurements"]:checked')].map(c => c.value);
+    const unit = document.getElementById('ex-unit-hidden').value || 'kg';
+
+    if (!name) { showToast('Exercise name required'); return false; }
+    if (checked.length === 0) { showToast('Select at least one measurement'); return false; }
+
+    const exercise = { name, muscleGroup, measurements: checked, unit };
+    const newId = await saveExercise(exercise);
+    exercise.id = newId;
+
+    // Add to editor state so it's available immediately
+    const state = window._workoutEditorState;
+    if (state) {
+      state.allExercises.push(exercise);
+      state.allExercises.sort((a, b) => a.name.localeCompare(b.name));
+
+      if (supersetIdx !== null && supersetIdx !== undefined) {
+        const ss = state.items[supersetIdx];
+        if (ss) ss.exercises.push({ exerciseId: newId });
+      } else {
+        state.items.push({ type: 'exercise', exerciseId: newId, targetSets: 3 });
+      }
+      refreshWorkoutItemsList();
+    }
+
+    showToast('Exercise created');
+    return true;
+  }, 'Create');
 }
 
 function updateStandaloneExerciseSets(idx, value) {
