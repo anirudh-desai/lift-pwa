@@ -136,6 +136,10 @@ function openExerciseModal(id = null) {
           <button type="button" class="btn btn-sm ${exUnit === 'lbs' ? 'btn-primary' : 'btn-ghost'}" onclick="selectExUnit('lbs', this)">lbs</button>
         </div>
       </div>
+      <div class="input-group">
+        <label class="input-label">Notes</label>
+        <textarea id="ex-notes" class="input" rows="3" placeholder="e.g. Keep back straight, neutral spine" style="resize:vertical">${ex && ex.notes ? escapeHTML(ex.notes) : ''}</textarea>
+      </div>
     `;
   }, async () => {
     const name = document.getElementById('ex-name').value.trim();
@@ -146,7 +150,8 @@ function openExerciseModal(id = null) {
     if (!name) { showToast('Exercise name required'); return false; }
     if (checked.length === 0) { showToast('Select at least one measurement'); return false; }
 
-    const exercise = { name, muscleGroup, measurements: checked, unit };
+    const notes = document.getElementById('ex-notes').value.trim();
+    const exercise = { name, muscleGroup, measurements: checked, unit, notes: notes || '' };
     if (isEdit) exercise.id = id;
     await saveExercise(exercise);
     showToast(isEdit ? 'Exercise updated' : 'Exercise added');

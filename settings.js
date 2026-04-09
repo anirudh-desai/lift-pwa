@@ -8,6 +8,7 @@ async function renderSettingsView() {
 
   const timerEnabled = await getSetting('timerEnabled', true);
   const restTimer = await getSetting('restTimer', 90);
+  const notesCollapsed = await getSetting('notesCollapsed', false);
 
   const content = document.getElementById('main-content');
   content.innerHTML = '';
@@ -26,6 +27,16 @@ async function renderSettingsView() {
         </div>
         <label class="toggle">
           <input type="checkbox" id="timer-enabled" ${timerEnabled ? 'checked' : ''} onchange="setTimerEnabled(this.checked)">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+      <div class="settings-row">
+        <div>
+          <div class="settings-row-label">Collapse Notes</div>
+          <div class="settings-row-sub">Hide notes until tapped during a workout</div>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" ${notesCollapsed ? 'checked' : ''} onchange="setNotesCollapsed(this.checked)">
           <span class="toggle-slider"></span>
         </label>
       </div>
@@ -120,6 +131,10 @@ async function exportData() {
   a.click();
   URL.revokeObjectURL(url);
   showToast('Export downloaded');
+}
+
+async function setNotesCollapsed(value) {
+  await setSetting('notesCollapsed', value);
 }
 
 async function setTimerEnabled(value) {

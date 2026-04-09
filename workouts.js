@@ -511,16 +511,21 @@ function openCreateExerciseFromEditor(supersetIdx) {
         <button type="button" class="btn btn-sm btn-ghost" onclick="selectExUnit('lbs', this)">lbs</button>
       </div>
     </div>
+    <div class="input-group">
+      <label class="input-label">Notes</label>
+      <textarea id="ex-notes" class="input" rows="3" placeholder="e.g. Keep back straight, neutral spine" style="resize:vertical"></textarea>
+    </div>
   `, async () => {
     const name = document.getElementById('ex-name').value.trim();
     const muscleGroup = document.getElementById('ex-muscle').value;
     const checked = [...document.querySelectorAll('input[name="measurements"]:checked')].map(c => c.value);
     const unit = document.getElementById('ex-unit-hidden').value || 'kg';
+    const notes = document.getElementById('ex-notes').value.trim();
 
     if (!name) { showToast('Exercise name required'); return false; }
     if (checked.length === 0) { showToast('Select at least one measurement'); return false; }
 
-    const exercise = { name, muscleGroup, measurements: checked, unit };
+    const exercise = { name, muscleGroup, measurements: checked, unit, notes: notes || '' };
     const newId = await saveExercise(exercise);
     exercise.id = newId;
 

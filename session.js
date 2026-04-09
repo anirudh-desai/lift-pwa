@@ -172,19 +172,21 @@ async function startSession(workoutId, isScheduled = false) {
   renderSessionView();
 }
 
-function renderSessionView() {
+async function renderSessionView() {
   if (!_sessionState) return;
   setPageTitle(_sessionState.workoutName.toUpperCase());
   showBack(true, confirmAbortSession);
+
+  const notesCollapsed = await getSetting('notesCollapsed', false);
 
   const content = document.getElementById('main-content');
   content.innerHTML = '';
 
   _sessionState.exerciseBlocks.forEach((block, blockIdx) => {
     if (block.type === 'superset') {
-      content.appendChild(buildSupersetBlock(block, blockIdx));
+      content.appendChild(buildSupersetBlock(block, blockIdx, notesCollapsed));
     } else {
-      content.appendChild(buildStandaloneExerciseBlock(block, blockIdx));
+      content.appendChild(buildStandaloneExerciseBlock(block, blockIdx, notesCollapsed));
     }
   });
 
@@ -197,7 +199,7 @@ function renderSessionView() {
   content.appendChild(bottomComplete);
 }
 
-function buildStandaloneExerciseBlock(block, blockIdx) {
+function buildStandaloneExerciseBlock(block, blockIdx, notesCollapsed = false) {
   const exBlock = document.createElement('div');
   exBlock.className = 'session-exercise-block animate-in';
   exBlock.id = `ex-block-${blockIdx}`;
@@ -225,6 +227,10 @@ function buildStandaloneExerciseBlock(block, blockIdx) {
   }
   exBlock.appendChild(exHeader);
 
+  if (block.exercise.notes) {
+    exBlock.appendChild(buildNotesBar(block.exercise, blockIdx, null, notesCollapsed));
+  }
+
   block.sets.forEach((set, setIdx) => {
     exBlock.appendChild(buildSetRow(block, blockIdx, setIdx));
   });
@@ -240,7 +246,7 @@ function buildStandaloneExerciseBlock(block, blockIdx) {
   return exBlock;
 }
 
-function buildSupersetBlock(block, blockIdx) {
+function buildSupersetBlock(block, blockIdx, notesCollapsed = false) {
   const container = document.createElement('div');
   container.className = 'session-superset-block animate-in';
   container.id = `ex-block-${blockIdx}`;
@@ -249,6 +255,13 @@ function buildSupersetBlock(block, blockIdx) {
   header.className = 'session-superset-header';
   header.innerHTML = `<span class="session-superset-label">Superset</span>`;
   container.appendChild(header);
+
+  // Notes per exercise within the superset (shown once, above rounds)
+  block.exercises.forEach((exBlock, exIdx) => {
+    if (exBlock.exercise.notes) {
+      container.appendChild(buildNotesBar(exBlock.exercise, blockIdx, exIdx, notesCollapsed));
+    }
+  });
 
   for (let roundIdx = 0; roundIdx < block.targetSets; roundIdx++) {
     container.appendChild(buildSupersetRound(block, blockIdx, roundIdx));
@@ -488,6 +501,92 @@ function summariseLastLog(sets, measurements) {
   if (measurements.includes('reps') && first.reps) parts.push(`${first.reps} reps`);
   if (measurements.includes('time') && first.time) parts.push(`${first.time}s`);
   return `${parts.join(' × ')} × ${completed.length} sets`;
+}
+
+/* ---- Exercise Notes ---- */
+
+// blockIdx = index in exerciseBlocks; exIdx = index within superset exercises (null for standalone)
+function buildNotesBar(exercise, blockIdx, exIdx, collapsed = false) {
+  const bar = document.createElement('div');
+  bar.className = 'session-notes-bar';
+  bar.id = exIdx !== null ? `notes-bar-${blockIdx}-${exIdx}` : `notes-bar-${blockIdx}`;
+
+  if (collapsed) {
+    bar.classList.add('collapsed');
+    const toggle = document.createElement('button');
+    toggle.className = 'session-notes-toggle';
+    toggle.textContent = '📋 Show notes';
+    toggle.addEventListener('click', () => {
+      bar.classList.remove('collapsed');
+      bar.innerHTML = '';
+      renderNotesBarContent(bar, exercise, blockIdx, exIdx);
+    });
+    bar.appendChild(toggle);
+  } else {
+    renderNotesBarContent(bar, exercise, blockIdx, exIdx);
+  }
+
+  return bar;
+}
+
+function renderNotesBarContent(bar, exercise, blockIdx, exIdx) {
+  const text = document.createElement('span');
+  text.className = 'session-notes-text';
+  text.textContent = exercise.notes || '';
+  bar.appendChild(text);
+
+  const editBtn = document.createElement('button');
+  editBtn.className = 'icon-btn';
+  editBtn.style.cssText = 'flex-shrink:0;font-size:13px;padding:4px';
+  editBtn.textContent = '✏️';
+  editBtn.addEventListener('click', () => editExerciseNotes(exercise, blockIdx, exIdx));
+  bar.appendChild(editBtn);
+}
+
+async function editExerciseNotes(exercise, blockIdx, exIdx) {
+  showModal('Notes', async () => `
+    <div class="input-group">
+      <label class="input-label">${escapeHTML(exercise.name)}</label>
+      <textarea id="session-notes-input" class="input" rows="4"
+        placeholder="e.g. Keep back straight, neutral spine"
+        style="resize:vertical">${escapeHTML(exercise.notes || '')}</textarea>
+    </div>
+  `, async () => {
+    const notes = document.getElementById('session-notes-input').value.trim();
+
+    // Persist to IndexedDB
+    exercise.notes = notes;
+    await saveExercise(exercise);
+
+    // Update the notes bar in the DOM
+    const barId = exIdx !== null ? `notes-bar-${blockIdx}-${exIdx}` : `notes-bar-${blockIdx}`;
+    const existing = document.getElementById(barId);
+
+    if (notes) {
+      const newBar = buildNotesBar(exercise, blockIdx, exIdx);
+      if (existing) {
+        existing.replaceWith(newBar);
+      } else {
+        // Insert notes bar after the exercise header / superset header
+        const blockEl = document.getElementById(`ex-block-${blockIdx}`);
+        if (blockEl) {
+          if (exIdx !== null) {
+            // For superset: insert after the superset header
+            const supersetHeader = blockEl.querySelector('.session-superset-header');
+            if (supersetHeader) supersetHeader.after(newBar);
+          } else {
+            // For standalone: insert after the exercise header
+            const exHeader = blockEl.querySelector('.session-exercise-header');
+            if (exHeader) exHeader.after(newBar);
+          }
+        }
+      }
+    } else if (existing) {
+      existing.remove();
+    }
+
+    return true;
+  }, 'Save');
 }
 
 /* ---- Rest Timer ---- */

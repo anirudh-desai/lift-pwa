@@ -986,6 +986,38 @@ body {
   justify-content: flex-end;
   padding: 8px 16px 10px;
 }
+/* ---- Session Notes Bar ---- */
+.session-notes-bar {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 16px;
+  background: var(--bg-3);
+  border-bottom: 1px solid var(--border);
+}
+.session-notes-text {
+  flex: 1;
+  font-size: 12px;
+  color: var(--text-2);
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+.session-notes-bar.collapsed {
+  background: transparent;
+  border-bottom: none;
+  padding: 4px 16px 0;
+}
+.session-notes-toggle {
+  background: none;
+  border: none;
+  color: var(--text-3);
+  font-size: 12px;
+  cursor: pointer;
+  padding: 0;
+  font-family: var(--font);
+  -webkit-tap-highlight-color: transparent;
+}
+
 .session-superset-flags {
   border-top: 1px solid var(--border);
   padding: 4px 16px 4px;
