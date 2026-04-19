@@ -158,7 +158,7 @@ function renderProgramWorkoutRows() {
       <span class="program-workout-order">${idx + 1}</span>
       <div style="flex:1">
         <div style="font-size:15px;font-weight:500">${escapeHTML(w.name)}</div>
-        <div style="font-size:12px;color:var(--text-2)">${(w.exercises || []).length} exercises</div>
+        <div style="font-size:12px;color:var(--text-2)">${countItemsExercises(normalizeWorkoutItems(w).items || [])} exercises</div>
       </div>
       <div style="display:flex;gap:4px">
         ${idx > 0 ? `<button class="icon-btn" onclick="moveProgramWorkout(${idx}, -1)">↑</button>` : '<span style="width:32px"></span>'}
