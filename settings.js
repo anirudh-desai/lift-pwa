@@ -120,7 +120,11 @@ async function exportData() {
 
   for (const session of sessions) {
     const logs = await getSessionLogs(session.id);
-    data.sessions.push({ ...session, exerciseLogs: logs });
+    const enrichedLogs = await Promise.all(logs.map(async (log) => {
+      const ex = await getExercise(log.exerciseId);
+      return { ...log, exerciseName: ex ? ex.name : null };
+    }));
+    data.sessions.push({ ...session, exerciseLogs: enrichedLogs });
   }
 
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
