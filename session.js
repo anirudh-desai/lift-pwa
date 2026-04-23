@@ -687,8 +687,10 @@ function showWorkoutCompleteScreen() {
   }, 3000);
 }
 
-function resumeSession() {
-  if (_sessionState) renderSessionView();
+async function resumeSession() {
+  if (!_sessionState) return;
+  _restTimerSeconds = await getSetting('restTimer', 90);
+  renderSessionView();
 }
 
 function confirmAbortSession() {
