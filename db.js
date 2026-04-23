@@ -241,14 +241,8 @@ async function clearActiveDraft() {
 
 /* ---- Init with default settings ---- */
 async function initDefaults() {
-  const unit = await getSetting('unit');
-  if (!unit) await setSetting('unit', 'kg');
-
   const timer = await getSetting('restTimer');
   if (!timer) await setSetting('restTimer', 90);
-
-  const activeProgram = await getSetting('activeProgram');
-  // activeProgram can be null by default
 }
 
 async function seedExercises() {
