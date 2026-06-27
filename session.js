@@ -143,7 +143,7 @@ async function startSession(workoutId, isScheduled = false) {
         exercise: ex,
         targetSets: item.targetSets || 3,
         sets,
-        flagNext: lastLog ? lastLog.flagNext : false,
+        flagNext: false,
         lastLog
       });
     } else if (item.type === 'superset') {
@@ -157,7 +157,7 @@ async function startSession(workoutId, isScheduled = false) {
           exerciseId: exItem.exerciseId,
           exercise: ex,
           sets,
-          flagNext: lastLog ? lastLog.flagNext : false,
+          flagNext: false,
           lastLog
         });
       }
