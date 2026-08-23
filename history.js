@@ -67,7 +67,7 @@ async function buildHistorySessionCard(session, logs) {
     nameRow.className = 'history-exercise-name';
     if (log.flagNext) {
       const flag = document.createElement('span');
-      flag.textContent = '🟡';
+      flag.textContent = '🟠';
       flag.title = 'Flagged for increment';
       nameRow.appendChild(flag);
     }

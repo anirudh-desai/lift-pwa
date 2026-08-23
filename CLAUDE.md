@@ -24,13 +24,13 @@ The app is a vanilla JS PWA. All code runs in the browser; there is no backend.
 1. `idb.js` (CDN) — IndexedDB promise wrapper
 2. `db.js` — database layer (must be first; all other files call its functions)
 3. Feature files: `exercises.js`, `workouts.js`, `programs.js`, `session.js`, `history.js`, `settings.js`
-4. `app.js` — router, `navigateTo()`, `showModal()`, `showToast()`, `escapeHTML()`, `escapeAttr()` (loaded last so feature files can define globals it calls)
+4. `app.js` — router, `navigateTo()`, `setPageTitle()`, `showBack()`, `showModal()`, `showToast()`, `escapeHTML()`, `escapeAttr()` (loaded last so feature files can define globals it calls)
 
 All functions are globals on `window` — there are no ES modules or imports.
 
-**Navigation** — `navigateTo(view)` in `app.js` switches between the 6 views (`home`, `exercises`, `workouts`, `programs`, `history`, `settings`) by calling the corresponding `render*View()` function. Each view renders into `#main-content` via `innerHTML`.
+**Navigation** — `navigateTo(view)` in `app.js` switches between the 6 views (`home`, `exercises`, `workouts`, `programs`, `history`, `settings`) by calling the corresponding `render*View()` function. Each view renders into `#main-content` via `innerHTML`. `setPageTitle(title)` sets the `#page-title` element. `showBack(show, callback)` shows/hides the back button and wires its callback.
 
-**Modals** — `showModal(title, contentFn, onConfirm, confirmLabel, confirmClass)` is the shared modal system. `contentFn` is an async function returning HTML string. `onConfirm` returning `false` keeps the modal open.
+**Modals** — `showModal(title, contentFn, onConfirm, confirmLabel, confirmClass)` is the shared modal system. `contentFn` is an async function returning HTML string. `onConfirm` returning `false` keeps the modal open. Clicking the overlay backdrop also dismisses the modal.
 
 **Database** (`db.js`) — Single IndexedDB database `lift-db` v1 with stores: `exercises`, `workouts`, `programs`, `sessions`, `exerciseLogs`, `settings`, `programState`. All DB functions are async and exposed as globals. `exerciseLogs` are pruned to 10 entries per exercise via `pruneExerciseLogs()`.
 
@@ -49,11 +49,11 @@ All functions are globals on `window` — there are no ES modules or imports.
 Session is saved to IndexedDB only on completion. In-progress state is persisted continuously to the `activeDraft` settings key so sessions survive page refreshes. The home view checks for an `activeDraft` on render and shows a "Workout In Progress" card with both Resume and Abandon options. Draft is cleared only on completion or abandonment (`clearActiveDraft()`). Key functions: `saveActiveDraft()`, `getActiveDraft()`, `resumeSession()`, `confirmAbortSession()`, `finishWorkout()`.
 
 **Settings** — stored as key-value pairs in the `settings` store. Current keys:
-- `restTimer` — rest duration in seconds (default 90)
-- `timerEnabled` — bool, whether rest timer auto-starts after set completion (default true)
+- `restTimer` — rest duration in seconds (default 90; seeded by `initDefaults()` in `db.js`)
+- `timerEnabled` — bool, whether rest timer auto-starts after set completion (default `true` via `getSetting` fallback in `settings.js`)
 - `activeProgram` — ID of the currently active program, or null
 - `activeDraft` — serialized in-progress session state for resume-after-refresh (see Active session state)
-- `notesCollapsed` — bool, whether exercise notes are hidden until tapped during a session (default false)
+- `notesCollapsed` — bool, whether exercise notes are hidden until tapped during a session (default `false` via `getSetting` fallback in `settings.js`)
 
 The weight unit (`kg`/`lbs`) is stored per-exercise as `exercise.unit`, not as a global setting.
 
