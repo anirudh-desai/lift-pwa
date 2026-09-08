@@ -90,15 +90,27 @@ async function renderHomeView() {
 
   const nextWorkoutId = next && next.workout ? next.workout.id : null;
 
+  // If there's an active program, show only its workouts in program order (deduplicated)
+  let workoutsToShow = workouts;
+  let sectionTitle = 'All Workouts';
+  if (next && next.program && next.program.workoutIds) {
+    const seen = new Set();
+    workoutsToShow = next.program.workoutIds
+      .filter(id => !seen.has(id) && seen.add(id))
+      .map(id => workouts.find(w => w.id === id))
+      .filter(Boolean);
+    sectionTitle = next.program.name;
+  }
+
   const sectionHeader = document.createElement('div');
   sectionHeader.className = 'section-header';
-  sectionHeader.innerHTML = `<span class="section-title">All Workouts</span>`;
+  sectionHeader.innerHTML = `<span class="section-title">${escapeHTML(sectionTitle)}</span>`;
   content.appendChild(sectionHeader);
 
   const grid = document.createElement('div');
   grid.className = 'workout-select-grid';
 
-  workouts.forEach(w => {
+  workoutsToShow.forEach(w => {
     const isNext = w.id === nextWorkoutId;
     const normalized = normalizeWorkoutItems(w);
     const exCount = countItemsExercises(normalized.items || []);
