@@ -32,21 +32,27 @@ async function renderHomeView() {
   `;
   content.appendChild(hero);
 
-  // 7-Minute Workout quick launch card (shown only when no active session)
+  // Quick-launch preset cards (shown only when no active session)
   if (!_sessionState) {
-    const sevenMinCard = document.createElement('div');
-    sevenMinCard.className = 'seven-min-launch-card';
-    sevenMinCard.innerHTML = `
-      <div style="display:flex;align-items:center;gap:12px">
-        <div style="font-size:26px;line-height:1">⚡</div>
-        <div>
-          <div style="font-weight:600;font-size:15px">7-Minute Workout</div>
-          <div style="font-size:12px;color:var(--text-3);margin-top:2px">12 exercises · no equipment needed</div>
+    const presets = [
+      { settingKey: 'sevenMinWorkoutId', icon: '⚡', label: '7-Minute Workout', meta: '12 exercises · no equipment needed' },
+      { settingKey: 'postPartumWorkoutId', icon: '🌸', label: 'Post-Partum 7 Min Workout', meta: '12 exercises · low impact · core-safe' },
+    ];
+    for (const preset of presets) {
+      const card = document.createElement('div');
+      card.className = 'seven-min-launch-card';
+      card.innerHTML = `
+        <div style="display:flex;align-items:center;gap:12px">
+          <div style="font-size:26px;line-height:1">${preset.icon}</div>
+          <div>
+            <div style="font-weight:600;font-size:15px">${escapeHTML(preset.label)}</div>
+            <div style="font-size:12px;color:var(--text-3);margin-top:2px">${escapeHTML(preset.meta)}</div>
+          </div>
         </div>
-      </div>
-      <button class="btn btn-primary btn-sm" onclick="startSevenMinWorkout()">Launch</button>
-    `;
-    content.appendChild(sevenMinCard);
+        <button class="btn btn-primary btn-sm" onclick="startSevenMinWorkout('${escapeAttr(preset.settingKey)}')">Launch</button>
+      `;
+      content.appendChild(card);
+    }
   }
 
   // Active session resume card
@@ -750,12 +756,12 @@ function cancelSevenMinIfActive() {
   _sevenMinState = null;
 }
 
-async function startSevenMinWorkout() {
-  const workoutId = await getSetting('sevenMinWorkoutId');
-  if (!workoutId) { showToast('7-min workout not set up'); return; }
+async function startSevenMinWorkout(settingKey = 'sevenMinWorkoutId') {
+  const workoutId = await getSetting(settingKey);
+  if (!workoutId) { showToast('Workout not set up'); return; }
 
   const workout = await getWorkout(workoutId);
-  if (!workout) { showToast('7-min workout not found'); return; }
+  if (!workout) { showToast('Workout not found'); return; }
 
   const restDuration = await getSetting('sevenMinRest', 15);
   const normalized = normalizeWorkoutItems(workout);

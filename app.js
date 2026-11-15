@@ -16,6 +16,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   await initDefaults();
   await seedExercises();
   await seed7MinWorkout();
+  await seedPostPartumWorkout();
 
   // Splash screen: show for 3 seconds then fade
   setTimeout(() => {

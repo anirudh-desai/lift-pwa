@@ -287,6 +287,48 @@ async function seed7MinWorkout() {
   await setSetting('sevenMinWorkoutId', workoutId);
 }
 
+async function seedPostPartumWorkout() {
+  const existingId = await getSetting('postPartumWorkoutId');
+  if (existingId) {
+    const existing = await getWorkout(existingId);
+    if (existing) return;
+  }
+
+  const exercisesPostPartum = [
+    { name: 'Diaphragmatic Breathing', muscleGroup: 'Core', measurements: ['time'] },
+    { name: 'Pelvic Floor Contractions', muscleGroup: 'Core', measurements: ['time'] },
+    { name: 'Glute Bridges', muscleGroup: 'Legs', measurements: ['time'] },
+    { name: 'Dead Bug', muscleGroup: 'Core', measurements: ['time'] },
+    { name: 'Bird Dog', muscleGroup: 'Core', measurements: ['time'] },
+    { name: 'Clamshells', muscleGroup: 'Legs', measurements: ['time'] },
+    { name: 'Wall Sit', muscleGroup: 'Legs', measurements: ['time'] },
+    { name: 'Side-Lying Hip Abduction', muscleGroup: 'Legs', measurements: ['time'] },
+    { name: 'Seated March', muscleGroup: 'Cardio', measurements: ['time'] },
+    { name: 'Cat-Cow Stretch', muscleGroup: 'Back', measurements: ['time'] },
+    { name: 'Standing Hip Hinge', muscleGroup: 'Legs', measurements: ['time'] },
+    { name: "Child's Pose Stretch", muscleGroup: 'Core', measurements: ['time'] },
+  ];
+
+  const allExercises = await getAllExercises();
+  const exerciseIds = [];
+  for (const ex of exercisesPostPartum) {
+    const found = allExercises.find(e => e.name === ex.name);
+    if (found) {
+      exerciseIds.push(found.id);
+    } else {
+      const id = await saveExercise(ex);
+      exerciseIds.push(id);
+    }
+  }
+
+  const workoutId = await saveWorkout({
+    name: 'Post-Partum 7 Min Workout',
+    items: exerciseIds.map(id => ({ type: 'exercise', exerciseId: id, targetSets: 1 }))
+  });
+
+  await setSetting('postPartumWorkoutId', workoutId);
+}
+
 async function seedExercises() {
   const existing = await getAllExercises();
   if (existing.length > 0) return;
