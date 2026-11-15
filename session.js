@@ -6,6 +6,9 @@ let _restTimerInterval = null;
 let _restTimerSeconds = 90;
 let _sessionState = null; // { workoutId, workoutName, exerciseBlocks: [...] }
 
+let _sevenMinState = null;
+let _sevenMinInterval = null;
+
 async function renderHomeView() {
   setPageTitle('LIFT');
   showBack(false);
@@ -28,6 +31,23 @@ async function renderHomeView() {
     <div class="home-subtitle">What are we doing today?</div>
   `;
   content.appendChild(hero);
+
+  // 7-Minute Workout quick launch card (shown only when no active session)
+  if (!_sessionState) {
+    const sevenMinCard = document.createElement('div');
+    sevenMinCard.className = 'seven-min-launch-card';
+    sevenMinCard.innerHTML = `
+      <div style="display:flex;align-items:center;gap:12px">
+        <div style="font-size:26px;line-height:1">⚡</div>
+        <div>
+          <div style="font-weight:600;font-size:15px">7-Minute Workout</div>
+          <div style="font-size:12px;color:var(--text-3);margin-top:2px">12 exercises · no equipment needed</div>
+        </div>
+      </div>
+      <button class="btn btn-primary btn-sm" onclick="startSevenMinWorkout()">Launch</button>
+    `;
+    content.appendChild(sevenMinCard);
+  }
 
   // Active session resume card
   if (_sessionState) {
@@ -716,4 +736,195 @@ function confirmAbortSession() {
     showBack(false);
     return true;
   }, 'Abandon', 'btn-danger');
+}
+
+/* =============================================
+   7-Minute Workout
+   ============================================= */
+
+function cancelSevenMinIfActive() {
+  if (_sevenMinInterval) {
+    clearInterval(_sevenMinInterval);
+    _sevenMinInterval = null;
+  }
+  _sevenMinState = null;
+}
+
+async function startSevenMinWorkout() {
+  const workoutId = await getSetting('sevenMinWorkoutId');
+  if (!workoutId) { showToast('7-min workout not set up'); return; }
+
+  const workout = await getWorkout(workoutId);
+  if (!workout) { showToast('7-min workout not found'); return; }
+
+  const restDuration = await getSetting('sevenMinRest', 15);
+  const normalized = normalizeWorkoutItems(workout);
+
+  const exercises = [];
+  for (const item of (normalized.items || [])) {
+    if (item.type === 'exercise') {
+      const ex = await getExercise(item.exerciseId);
+      if (ex) exercises.push(ex);
+    }
+  }
+  if (exercises.length === 0) { showToast('No exercises found'); return; }
+
+  cancelSevenMinIfActive();
+
+  _sevenMinState = {
+    workoutId,
+    exercises,
+    currentIdx: -1,
+    phase: 'countdown',
+    timeLeft: 10,
+    exerciseDuration: 30,
+    restDuration,
+  };
+
+  renderSevenMinView();
+  _sevenMinInterval = setInterval(tickSevenMin, 1000);
+}
+
+function renderSevenMinView() {
+  const s = _sevenMinState;
+  if (!s) return;
+
+  setPageTitle('7-MIN WORKOUT');
+  showBack(true, confirmQuitSevenMin);
+
+  let phaseLabel, mainText, nextText;
+
+  if (s.phase === 'countdown') {
+    phaseLabel = 'GET READY';
+    mainText = s.exercises[0].name;
+    nextText = null;
+  } else if (s.phase === 'exercise') {
+    phaseLabel = `EXERCISE ${s.currentIdx + 1} OF ${s.exercises.length}`;
+    mainText = s.exercises[s.currentIdx].name;
+    nextText = s.currentIdx < s.exercises.length - 1 ? s.exercises[s.currentIdx + 1].name : null;
+  } else {
+    phaseLabel = 'REST';
+    mainText = 'REST';
+    nextText = s.currentIdx + 1 < s.exercises.length ? s.exercises[s.currentIdx + 1].name : null;
+  }
+
+  const timerStr = s.timeLeft < 60 ? String(s.timeLeft) : `${Math.floor(s.timeLeft / 60)}:${(s.timeLeft % 60).toString().padStart(2, '0')}`;
+  const isWarning = s.timeLeft <= 5;
+
+  const completedCount = s.phase === 'exercise' ? s.currentIdx : (s.phase === 'rest' ? s.currentIdx + 1 : 0);
+  const dots = s.exercises.map((_, i) => {
+    const done = i < completedCount;
+    const active = s.phase === 'exercise' && i === s.currentIdx;
+    return `<span class="seven-min-dot ${done ? 'done' : ''} ${active ? 'active' : ''}"></span>`;
+  }).join('');
+
+  const content = document.getElementById('main-content');
+  content.innerHTML = `
+    <div class="seven-min-view">
+      <div class="seven-min-phase-label">${escapeHTML(phaseLabel)}</div>
+      <div class="seven-min-exercise-name">${escapeHTML(mainText)}</div>
+      ${nextText ? `<div class="seven-min-next">Next: ${escapeHTML(nextText)}</div>` : '<div class="seven-min-next-placeholder"></div>'}
+      <div class="seven-min-timer${isWarning ? ' warning' : ''}">${escapeHTML(timerStr)}</div>
+      <div class="seven-min-dots">${dots}</div>
+      <div class="seven-min-controls">
+        <button class="btn btn-secondary" onclick="skipSevenMinPhase()">Skip</button>
+        <button class="btn btn-danger" onclick="confirmQuitSevenMin()">Quit</button>
+      </div>
+    </div>
+  `;
+}
+
+function tickSevenMin() {
+  const s = _sevenMinState;
+  if (!s) { clearInterval(_sevenMinInterval); _sevenMinInterval = null; return; }
+
+  s.timeLeft--;
+
+  if (s.timeLeft <= 0) {
+    if (s.phase === 'countdown') {
+      s.phase = 'exercise';
+      s.currentIdx = 0;
+      s.timeLeft = s.exerciseDuration;
+    } else if (s.phase === 'exercise') {
+      if (s.currentIdx >= s.exercises.length - 1) {
+        clearInterval(_sevenMinInterval);
+        _sevenMinInterval = null;
+        finishSevenMinWorkout();
+        return;
+      } else {
+        s.phase = 'rest';
+        s.timeLeft = s.restDuration;
+      }
+    } else {
+      s.currentIdx++;
+      s.phase = 'exercise';
+      s.timeLeft = s.exerciseDuration;
+    }
+  }
+
+  renderSevenMinView();
+}
+
+function skipSevenMinPhase() {
+  const s = _sevenMinState;
+  if (!s) return;
+  clearInterval(_sevenMinInterval);
+  _sevenMinInterval = null;
+
+  if (s.phase === 'countdown') {
+    s.phase = 'exercise';
+    s.currentIdx = 0;
+    s.timeLeft = s.exerciseDuration;
+  } else if (s.phase === 'exercise') {
+    if (s.currentIdx >= s.exercises.length - 1) {
+      finishSevenMinWorkout();
+      return;
+    } else {
+      s.phase = 'rest';
+      s.timeLeft = s.restDuration;
+    }
+  } else {
+    s.currentIdx++;
+    s.phase = 'exercise';
+    s.timeLeft = s.exerciseDuration;
+  }
+
+  renderSevenMinView();
+  _sevenMinInterval = setInterval(tickSevenMin, 1000);
+}
+
+function confirmQuitSevenMin() {
+  showModal('Quit Workout', async () => {
+    return `<p style="color:var(--text-2);font-size:15px;line-height:1.5">Quit the 7-minute workout? Progress will not be saved.</p>`;
+  }, async () => {
+    cancelSevenMinIfActive();
+    navigateTo('home');
+    return true;
+  }, 'Quit', 'btn-danger');
+}
+
+async function finishSevenMinWorkout() {
+  const s = _sevenMinState;
+  _sevenMinState = null;
+  clearInterval(_sevenMinInterval);
+  _sevenMinInterval = null;
+
+  const now = Date.now();
+  const sessionId = await saveSession({
+    workoutId: s.workoutId,
+    workoutName: '7-Minute Workout',
+    completedAt: now,
+  });
+
+  for (const ex of s.exercises) {
+    await saveExerciseLog({
+      exerciseId: ex.id,
+      sessionId,
+      sets: [{ time: s.exerciseDuration, completed: true }],
+      flagNext: false,
+    });
+    await pruneExerciseLogs(ex.id);
+  }
+
+  showWorkoutCompleteScreen();
 }

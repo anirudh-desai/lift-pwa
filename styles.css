@@ -1053,4 +1053,106 @@ body {
 .flex-col { flex-direction: column; }
 .gap-8 { gap: 8px; }
 .gap-12 { gap: 12px; }
+
+/* ---- 7-Minute Workout ---- */
+.seven-min-launch-card {
+  margin: 0 16px 12px;
+  padding: 14px 16px;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.seven-min-view {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 32px 24px 24px;
+  gap: 0;
+  text-align: center;
+}
+
+.seven-min-phase-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  color: var(--text-3);
+  text-transform: uppercase;
+  margin-bottom: 16px;
+}
+
+.seven-min-exercise-name {
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.2;
+  margin-bottom: 10px;
+  min-height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.seven-min-next {
+  font-size: 13px;
+  color: var(--text-3);
+  margin-bottom: 24px;
+  min-height: 20px;
+}
+
+.seven-min-next-placeholder {
+  min-height: 20px;
+  margin-bottom: 24px;
+}
+
+.seven-min-timer {
+  font-size: 112px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+  line-height: 1;
+  letter-spacing: -4px;
+  transition: color 0.3s ease;
+  margin-bottom: 32px;
+}
+
+.seven-min-timer.warning {
+  color: var(--accent);
+}
+
+.seven-min-dots {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-bottom: 36px;
+  max-width: 280px;
+}
+
+.seven-min-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--bg-4);
+  transition: background 0.3s ease;
+}
+
+.seven-min-dot.done {
+  background: var(--green);
+}
+
+.seven-min-dot.active {
+  background: var(--accent);
+}
+
+.seven-min-controls {
+  display: flex;
+  gap: 12px;
+  width: 100%;
+  max-width: 280px;
+}
 .p-16 { padding: 16px; }
