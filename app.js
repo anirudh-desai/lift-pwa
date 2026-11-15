@@ -15,6 +15,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Init DB defaults
   await initDefaults();
   await seedExercises();
+  await seed7MinWorkout();
 
   // Splash screen: show for 3 seconds then fade
   setTimeout(() => {
@@ -54,6 +55,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 function navigateTo(view) {
   _currentView = view;
   _backCallback = null;
+  cancelSevenMinIfActive();
 
   // Update nav tabs
   document.querySelectorAll('.nav-tab').forEach(t => {

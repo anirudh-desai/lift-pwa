@@ -9,6 +9,7 @@ async function renderSettingsView() {
   const timerEnabled = await getSetting('timerEnabled', true);
   const restTimer = await getSetting('restTimer', 90);
   const notesCollapsed = await getSetting('notesCollapsed', false);
+  const sevenMinRest = await getSetting('sevenMinRest', 15);
 
   const content = document.getElementById('main-content');
   content.innerHTML = '';
@@ -49,6 +50,17 @@ async function renderSettingsView() {
           <button class="icon-btn" style="font-size:20px;color:var(--text)" onclick="adjustTimer(-15)">−</button>
           <div id="timer-display" style="font-size:18px;font-weight:600;font-variant-numeric:tabular-nums;min-width:52px;text-align:center">${formatTimerDisplay(restTimer)}</div>
           <button class="icon-btn" style="font-size:20px;color:var(--text)" onclick="adjustTimer(15)">+</button>
+        </div>
+      </div>
+      <div class="settings-row">
+        <div>
+          <div class="settings-row-label">7-Min Rest Between Exercises</div>
+          <div class="settings-row-sub">Seconds between exercises</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <button class="icon-btn" style="font-size:20px;color:var(--text)" onclick="adjustSevenMinRest(-5)">−</button>
+          <div id="seven-min-rest-display" style="font-size:18px;font-weight:600;font-variant-numeric:tabular-nums;min-width:52px;text-align:center">${formatTimerDisplay(sevenMinRest)}</div>
+          <button class="icon-btn" style="font-size:20px;color:var(--text)" onclick="adjustSevenMinRest(5)">+</button>
         </div>
       </div>
     </div>
@@ -104,6 +116,16 @@ async function adjustTimer(delta) {
   if (display) display.textContent = formatTimerDisplay(current);
   clearTimeout(_timerAdjustTimeout);
   _timerAdjustTimeout = setTimeout(() => showToast(`Rest timer: ${formatTimerDisplay(current)}`), 400);
+}
+
+async function adjustSevenMinRest(delta) {
+  let current = await getSetting('sevenMinRest', 15);
+  current = Math.max(5, Math.min(60, current + delta));
+  await setSetting('sevenMinRest', current);
+  const display = document.getElementById('seven-min-rest-display');
+  if (display) display.textContent = formatTimerDisplay(current);
+  clearTimeout(_timerAdjustTimeout);
+  _timerAdjustTimeout = setTimeout(() => showToast(`7-min rest: ${formatTimerDisplay(current)}`), 400);
 }
 
 function formatTimerDisplay(seconds) {

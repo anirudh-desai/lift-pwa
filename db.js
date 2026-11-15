@@ -245,6 +245,48 @@ async function initDefaults() {
   if (!timer) await setSetting('restTimer', 90);
 }
 
+async function seed7MinWorkout() {
+  const existingId = await getSetting('sevenMinWorkoutId');
+  if (existingId) {
+    const existing = await getWorkout(existingId);
+    if (existing) return;
+  }
+
+  const exercises7Min = [
+    { name: 'Jumping Jacks', muscleGroup: 'Cardio', measurements: ['time'] },
+    { name: 'Wall Sit', muscleGroup: 'Legs', measurements: ['time'] },
+    { name: 'Push-ups', muscleGroup: 'Chest', measurements: ['time'] },
+    { name: 'Abdominal Crunches', muscleGroup: 'Core', measurements: ['time'] },
+    { name: 'Step-up onto Chair', muscleGroup: 'Legs', measurements: ['time'] },
+    { name: 'Squat', muscleGroup: 'Legs', measurements: ['time'] },
+    { name: 'Tricep Curls', muscleGroup: 'Arms', measurements: ['time'] },
+    { name: 'Plank', muscleGroup: 'Core', measurements: ['time'] },
+    { name: 'High Knees', muscleGroup: 'Cardio', measurements: ['time'] },
+    { name: 'Lunge', muscleGroup: 'Legs', measurements: ['time'] },
+    { name: 'Push-up with Rotation', muscleGroup: 'Chest', measurements: ['time'] },
+    { name: 'Side Plank', muscleGroup: 'Core', measurements: ['time'] },
+  ];
+
+  const allExercises = await getAllExercises();
+  const exerciseIds = [];
+  for (const ex of exercises7Min) {
+    const found = allExercises.find(e => e.name === ex.name);
+    if (found) {
+      exerciseIds.push(found.id);
+    } else {
+      const id = await saveExercise(ex);
+      exerciseIds.push(id);
+    }
+  }
+
+  const workoutId = await saveWorkout({
+    name: '7-Minute Workout',
+    items: exerciseIds.map(id => ({ type: 'exercise', exerciseId: id, targetSets: 1 }))
+  });
+
+  await setSetting('sevenMinWorkoutId', workoutId);
+}
+
 async function seedExercises() {
   const existing = await getAllExercises();
   if (existing.length > 0) return;
